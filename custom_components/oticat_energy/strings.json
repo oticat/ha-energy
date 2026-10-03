@@ -1,0 +1,116 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Oticat Energy",
+        "description": "Connects to the Oticat Energy service. Add each inverter afterwards with its own site token.",
+        "data": {
+          "url": "Service URL"
+        }
+      },
+      "reconfigure": {
+        "title": "Oticat Energy",
+        "data": {
+          "url": "Service URL"
+        }
+      }
+    },
+    "abort": {
+      "single_instance_allowed": "Oticat Energy is already set up. Add more inverters to it instead.",
+      "reconfigure_successful": "The service URL was updated."
+    }
+  },
+  "config_subentries": {
+    "inverter": {
+      "initiate_flow": {
+        "user": "Add inverter"
+      },
+      "entry_type": "Inverter",
+      "step": {
+        "user": {
+          "title": "Inverter",
+          "description": "Battery, solar panel and grid settings are made on dom.oti.cat, in Inverter automation. Each site there has its own token.",
+          "data": {
+            "token": "Site token",
+            "soc_entity": "Battery SOC entity",
+            "load_entity": "House consumption energy sensor",
+            "inverter": "Inverter control",
+            "inverter_prefix": "Inverter entity prefix",
+            "program_power": "Program power"
+          },
+          "data_description": {
+            "token": "Shown when the site is created on dom.oti.cat.",
+            "soc_entity": "State of charge in percent.",
+            "load_entity": "Total kWh used by the house, not counting battery charging. The plan learns the hourly pattern from its last 14 days.",
+            "inverter_prefix": "For number.deye_program_1_soc it is deye.",
+            "program_power": "Battery power limit written to every time-of-use program."
+          }
+        },
+        "reconfigure": {
+          "title": "Inverter",
+          "description": "Battery, solar panel and grid settings are made on dom.oti.cat, in Inverter automation. Each site there has its own token.",
+          "data": {
+            "token": "Site token",
+            "soc_entity": "Battery SOC entity",
+            "load_entity": "House consumption energy sensor",
+            "inverter": "Inverter control",
+            "inverter_prefix": "Inverter entity prefix",
+            "program_power": "Program power"
+          },
+          "data_description": {
+            "token": "Shown when the site is created on dom.oti.cat.",
+            "soc_entity": "State of charge in percent.",
+            "load_entity": "Total kWh used by the house, not counting battery charging. The plan learns the hourly pattern from its last 14 days.",
+            "inverter_prefix": "For number.deye_program_1_soc it is deye.",
+            "program_power": "Battery power limit written to every time-of-use program."
+          }
+        }
+      },
+      "error": {
+        "invalid_auth": "The service rejected the token.",
+        "cannot_connect": "Could not get a plan from the service.",
+        "soc_unavailable": "The SOC entity has no value.",
+        "inverter_not_found": "No inverter programs found with that prefix.",
+        "different_site": "That token belongs to a different site. Add it as a new inverter instead."
+      },
+      "abort": {
+        "site_updated": "This site was already set up here. Its inverter now uses the new settings.",
+        "reconfigure_successful": "The inverter settings were updated."
+      }
+    }
+  },
+  "selector": {
+    "inverter": {
+      "options": {
+        "deye": "Deye (ha-solarman time-of-use programs)",
+        "none": "None, only expose the plan as sensors"
+      }
+    }
+  },
+  "entity": {
+    "sensor": {
+      "action": {
+        "name": "Battery action",
+        "state": {
+          "charge": "Charge from grid",
+          "hold": "Hold",
+          "self_consume": "Self-consumption"
+        }
+      },
+      "soc_target": {
+        "name": "Target SOC"
+      },
+      "savings": {
+        "name": "Expected savings"
+      },
+      "planned_cost": {
+        "name": "Planned grid cost"
+      }
+    },
+    "binary_sensor": {
+      "grid_charge": {
+        "name": "Grid charging"
+      }
+    }
+  }
+}

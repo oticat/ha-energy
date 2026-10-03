@@ -1,0 +1,116 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Oticat Energy",
+        "description": "Connecta amb el servei Oticat Energy. Després afegeix cada inversor amb el token del seu lloc.",
+        "data": {
+          "url": "URL del servei"
+        }
+      },
+      "reconfigure": {
+        "title": "Oticat Energy",
+        "data": {
+          "url": "URL del servei"
+        }
+      }
+    },
+    "abort": {
+      "single_instance_allowed": "Oticat Energy ja està configurat. Afegeix-hi més inversors.",
+      "reconfigure_successful": "S'ha actualitzat l'URL del servei."
+    }
+  },
+  "config_subentries": {
+    "inverter": {
+      "initiate_flow": {
+        "user": "Afegeix un inversor"
+      },
+      "entry_type": "Inversor",
+      "step": {
+        "user": {
+          "title": "Inversor",
+          "description": "La bateria, les plaques i la xarxa es configuren a dom.oti.cat, a Automatització de l'inversor. Cada lloc hi té el seu token.",
+          "data": {
+            "token": "Token del lloc",
+            "soc_entity": "Entitat de SOC de la bateria",
+            "load_entity": "Sensor d'energia consumida per la casa",
+            "inverter": "Control de l'inversor",
+            "inverter_prefix": "Prefix de les entitats de l'inversor",
+            "program_power": "Potència dels programes"
+          },
+          "data_description": {
+            "token": "Es mostra en crear el lloc a dom.oti.cat.",
+            "soc_entity": "Estat de càrrega en percentatge.",
+            "load_entity": "kWh totals que gasta la casa, sense comptar la càrrega de la bateria. El pla n'aprèn el patró horari dels darrers 14 dies.",
+            "inverter_prefix": "Per a number.deye_program_1_soc és deye.",
+            "program_power": "Límit de potència de la bateria que s'escriu a cada programa horari."
+          }
+        },
+        "reconfigure": {
+          "title": "Inversor",
+          "description": "La bateria, les plaques i la xarxa es configuren a dom.oti.cat, a Automatització de l'inversor. Cada lloc hi té el seu token.",
+          "data": {
+            "token": "Token del lloc",
+            "soc_entity": "Entitat de SOC de la bateria",
+            "load_entity": "Sensor d'energia consumida per la casa",
+            "inverter": "Control de l'inversor",
+            "inverter_prefix": "Prefix de les entitats de l'inversor",
+            "program_power": "Potència dels programes"
+          },
+          "data_description": {
+            "token": "Es mostra en crear el lloc a dom.oti.cat.",
+            "soc_entity": "Estat de càrrega en percentatge.",
+            "load_entity": "kWh totals que gasta la casa, sense comptar la càrrega de la bateria. El pla n'aprèn el patró horari dels darrers 14 dies.",
+            "inverter_prefix": "Per a number.deye_program_1_soc és deye.",
+            "program_power": "Límit de potència de la bateria que s'escriu a cada programa horari."
+          }
+        }
+      },
+      "error": {
+        "invalid_auth": "El servei ha rebutjat el token.",
+        "cannot_connect": "No s'ha pogut obtenir un pla del servei.",
+        "soc_unavailable": "L'entitat de SOC no té valor.",
+        "inverter_not_found": "No s'han trobat programes de l'inversor amb aquest prefix.",
+        "different_site": "Aquest token és d'un altre lloc. Afegeix-lo com a inversor nou."
+      },
+      "abort": {
+        "site_updated": "Aquest lloc ja estava configurat aquí. El seu inversor ara fa servir la configuració nova.",
+        "reconfigure_successful": "S'ha actualitzat la configuració de l'inversor."
+      }
+    }
+  },
+  "selector": {
+    "inverter": {
+      "options": {
+        "deye": "Deye (programes horaris d'ha-solarman)",
+        "none": "Cap, només exposar el pla com a sensors"
+      }
+    }
+  },
+  "entity": {
+    "sensor": {
+      "action": {
+        "name": "Acció de la bateria",
+        "state": {
+          "charge": "Càrrega de la xarxa",
+          "hold": "Retenir",
+          "self_consume": "Autoconsum"
+        }
+      },
+      "soc_target": {
+        "name": "SOC objectiu"
+      },
+      "savings": {
+        "name": "Estalvi previst"
+      },
+      "planned_cost": {
+        "name": "Cost de xarxa previst"
+      }
+    },
+    "binary_sensor": {
+      "grid_charge": {
+        "name": "Càrrega de la xarxa"
+      }
+    }
+  }
+}
