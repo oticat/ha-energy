@@ -50,6 +50,9 @@ restart.
    - **House consumption energy sensor**: total kWh used by the house, not counting battery
      charging. The plan learns your hourly pattern from its last 14 days. Until there are 3 days
      of history it uses REE's standard household profile.
+   - **Location**: the zone where the panels are, for the solar forecast and temperature. It
+     defaults to Home. For another place, add a zone under Settings > Areas, labels & zones >
+     Zones first.
    - **Inverter control**: `Deye` to write the programs, or `None` for sensors only.
    - **Inverter entity prefix**: for `number.deye_program_1_soc` it is `deye`.
    - **Program power**: the battery power limit written to every program.
@@ -85,7 +88,7 @@ profiles use the same names.
 
 ## What is sent to the service
 
-Each request sends your Home Assistant location and time zone, the current battery SOC and the
+Each request sends the chosen zone's coordinates and name, your time zone, the current battery SOC and the
 hourly consumption of the last 14 days. Nothing else leaves your home, and the service never
 connects to your inverter.
 

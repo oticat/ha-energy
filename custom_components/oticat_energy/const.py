@@ -12,6 +12,9 @@ CONF_INVERTER = "inverter"
 CONF_INVERTER_PREFIX = "inverter_prefix"
 CONF_PROGRAM_POWER = "program_power"
 CONF_SITE_ID = "site_id"
+CONF_ZONE = "zone"
+
+DEFAULT_ZONE = "zone.home"
 
 SUBENTRY_INVERTER = "inverter"
 

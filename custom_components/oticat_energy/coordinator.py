@@ -31,7 +31,9 @@ from .const import (
     CONF_SOC_ENTITY,
     CONF_TOKEN,
     CONF_URL,
+    CONF_ZONE,
     DEFAULT_URL,
+    DEFAULT_ZONE,
     DOMAIN,
     HISTORY_DAYS,
     INVERTER_DEYE,
@@ -66,12 +68,18 @@ def read_soc(hass: HomeAssistant, entity_id: str) -> float | None:
         return None
 
 
-def location(hass: HomeAssistant) -> dict[str, Any]:
-    return {
-        "latitude": hass.config.latitude,
-        "longitude": hass.config.longitude,
-        "timezone": hass.config.time_zone,
-    }
+def location(hass: HomeAssistant, zone: str | None = None) -> dict[str, Any]:
+    """Where the inverter is: the chosen zone, by default the home zone.
+
+    A zone that no longer exists falls back to Home Assistant's own location, without a
+    zone name, and the coordinator reports it.
+    """
+    state = hass.states.get(zone or DEFAULT_ZONE)
+    lat = state.attributes.get("latitude") if state else None
+    lon = state.attributes.get("longitude") if state else None
+    if lat is None or lon is None:
+        return {"latitude": hass.config.latitude, "longitude": hass.config.longitude, "timezone": hass.config.time_zone}
+    return {"latitude": lat, "longitude": lon, "timezone": hass.config.time_zone, "zone": state.name}
 
 
 async def request_plan(hass: HomeAssistant, conf: dict[str, Any], body: dict[str, Any]) -> dict[str, Any]:
@@ -188,15 +196,16 @@ class EnergyCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         except Exception as err:  # noqa: BLE001 - a recorder problem must not stop planning
             _LOGGER.warning("Could not read load history: %s", err)
             history = self._history
+        where = location(self.hass, conf.get(CONF_ZONE))
         body = {
-            "location": location(self.hass),
+            "location": where,
             "state": {"soc": soc},
             "load_history": history,
             "client": {"integration": self._version, "ha": HA_VERSION},
         }
         try:
             self.plan = await request_plan(self.hass, conf, body)
-            self.error = None
+            self.error = None if "zone" in where else f"{conf.get(CONF_ZONE) or DEFAULT_ZONE} not found, using Home Assistant's location"
         except PlanRequestError as err:
             # Keep the last plan: it covers until its horizon_end, usually the end of tomorrow.
             self.error = str(err)

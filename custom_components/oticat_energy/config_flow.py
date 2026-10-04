@@ -30,7 +30,9 @@ from .const import (
     CONF_SOC_ENTITY,
     CONF_TOKEN,
     CONF_URL,
+    CONF_ZONE,
     DEFAULT_URL,
+    DEFAULT_ZONE,
     DOMAIN,
     INVERTER_DEYE,
     INVERTER_NONE,
@@ -47,6 +49,9 @@ def _inverter_schema(d: dict[str, Any]) -> vol.Schema:
         ),
         vol.Optional(CONF_LOAD_ENTITY, description={"suggested_value": d.get(CONF_LOAD_ENTITY)}): selector.EntitySelector(
             selector.EntitySelectorConfig(domain="sensor", device_class="energy")
+        ),
+        vol.Required(CONF_ZONE, default=d.get(CONF_ZONE, DEFAULT_ZONE)): selector.EntitySelector(
+            selector.EntitySelectorConfig(domain="zone")
         ),
         vol.Required(CONF_INVERTER, default=d.get(CONF_INVERTER, INVERTER_DEYE)): selector.SelectSelector(
             selector.SelectSelectorConfig(options=[INVERTER_DEYE, INVERTER_NONE], translation_key="inverter")
@@ -68,7 +73,7 @@ async def _validate(hass: HomeAssistant, url: str, conf: dict[str, Any]) -> tupl
         if not any(hass.states.get(f"{d}.{prefix}_program_1_soc") for d in ("number", "input_number")):
             return "inverter_not_found", {}
     try:
-        plan = await request_plan(hass, {CONF_URL: url, **conf}, {"location": location(hass), "state": {"soc": soc}})
+        plan = await request_plan(hass, {CONF_URL: url, **conf}, {"location": location(hass, conf.get(CONF_ZONE)), "state": {"soc": soc}})
     except PlanRequestError as err:
         return ("invalid_auth" if err.unauthorized else "cannot_connect"), {}
     return None, plan.get("site", {})
