@@ -15,11 +15,12 @@ import aiohttp
 from homeassistant.components.recorder import get_instance
 from homeassistant.components.recorder.statistics import statistics_during_period
 from homeassistant.config_entries import ConfigEntry, ConfigSubentry
-from homeassistant.const import STATE_UNAVAILABLE, STATE_UNKNOWN
+from homeassistant.const import STATE_UNAVAILABLE, STATE_UNKNOWN, __version__ as HA_VERSION
 from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from homeassistant.helpers.event import async_track_time_change
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator
+from homeassistant.loader import async_get_integration
 from homeassistant.util import dt as dt_util
 
 from .const import (
@@ -117,6 +118,7 @@ class EnergyCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         self.error: str | None = None
         self._history: list[dict[str, Any]] = []
         self._history_at: datetime | None = None
+        self._version: str | None = None
         conf = self.conf
         self.writer: DeyeWriter | None = None
         if conf.get(CONF_INVERTER) == INVERTER_DEYE:
@@ -129,6 +131,8 @@ class EnergyCoordinator(DataUpdateCoordinator[dict[str, Any]]):
 
     async def async_setup(self) -> None:
         """Recompute the current view at every hour change, between plan fetches."""
+        # Reported with each plan so dom.oti.cat can show which version runs and offer updates.
+        self._version = str((await async_get_integration(self.hass, DOMAIN)).version)
 
         @callback
         def _hour_changed(_now: datetime) -> None:
@@ -184,7 +188,12 @@ class EnergyCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         except Exception as err:  # noqa: BLE001 - a recorder problem must not stop planning
             _LOGGER.warning("Could not read load history: %s", err)
             history = self._history
-        body = {"location": location(self.hass), "state": {"soc": soc}, "load_history": history}
+        body = {
+            "location": location(self.hass),
+            "state": {"soc": soc},
+            "load_history": history,
+            "client": {"integration": self._version, "ha": HA_VERSION},
+        }
         try:
             self.plan = await request_plan(self.hass, conf, body)
             self.error = None
