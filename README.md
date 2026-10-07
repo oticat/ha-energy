@@ -53,6 +53,10 @@ restart.
    - **Grid energy sensor** (optional): total kWh drawn from the grid, used by the day chart on
      dom.oti.cat to show the real grid cost. A signed meter that goes negative while exporting
      is fine. Without it the chart falls back to an estimate.
+   - **Grid export energy sensor** (optional): total kWh fed to the grid, if the meter keeps a
+     separate export register. Its hours are priced at the surplus price.
+   - **Solar production energy sensor** (optional): total kWh produced by the panels. The day
+     chart shows the measured production for the hours already past and the model ahead.
    - **Location**: the zone where the panels are, for the solar forecast and temperature. It
      defaults to Home. For another place, add a zone under Settings > Areas, labels & zones >
      Zones first.

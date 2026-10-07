@@ -25,10 +25,12 @@ from homeassistant.util import dt as dt_util
 
 from .const import (
     CONF_GRID_ENTITY,
+    CONF_GRID_EXPORT_ENTITY,
     CONF_INVERTER,
     CONF_INVERTER_PREFIX,
     CONF_LOAD_ENTITY,
     CONF_PROGRAM_POWER,
+    CONF_SOLAR_ENTITY,
     CONF_SOC_ENTITY,
     CONF_TOKEN,
     CONF_URL,
@@ -93,6 +95,8 @@ def entities(conf: dict[str, Any]) -> dict[str, Any]:
         "soc": conf.get(CONF_SOC_ENTITY),
         "load": conf.get(CONF_LOAD_ENTITY),
         "grid": conf.get(CONF_GRID_ENTITY),
+        "grid_export": conf.get(CONF_GRID_EXPORT_ENTITY),
+        "solar": conf.get(CONF_SOLAR_ENTITY),
         "zone": conf.get(CONF_ZONE),
         "inverter": conf.get(CONF_INVERTER),
         "inverter_prefix": conf.get(CONF_INVERTER_PREFIX),
@@ -213,19 +217,27 @@ class EnergyCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         if soc is None:
             self.error = f"{conf[CONF_SOC_ENTITY]} has no value"
             return self.view()
+        # Each measured sensor becomes an hourly history: consumption, grid import, grid export
+        # and solar production. A recorder problem keeps the last copy and must not stop planning.
+        wanted = {
+            "load_history": conf.get(CONF_LOAD_ENTITY),
+            "grid_history": conf.get(CONF_GRID_ENTITY),
+            "grid_export_history": conf.get(CONF_GRID_EXPORT_ENTITY),
+            "solar_history": conf.get(CONF_SOLAR_ENTITY),
+        }
+        histories: dict[str, list[dict[str, Any]]] = {}
         try:
-            load_history = await self._entity_history(conf.get(CONF_LOAD_ENTITY))
-            grid_history = await self._entity_history(conf.get(CONF_GRID_ENTITY))
+            for key, entity_id in wanted.items():
+                histories[key] = await self._entity_history(entity_id)
         except Exception as err:  # noqa: BLE001 - a recorder problem must not stop planning
             _LOGGER.warning("Could not read history: %s", err)
-            load_history = self._history.get(conf.get(CONF_LOAD_ENTITY) or "", (None, []))[1]
-            grid_history = self._history.get(conf.get(CONF_GRID_ENTITY) or "", (None, []))[1]
+            for key, entity_id in wanted.items():
+                histories.setdefault(key, self._history.get(entity_id or "", (None, []))[1])
         where = location(self.hass, conf.get(CONF_ZONE))
         body = {
             "location": where,
             "state": {"soc": soc},
-            "load_history": load_history,
-            "grid_history": grid_history,
+            **histories,
             "entities": entities(conf),
             "client": {"integration": self._version, "ha": HA_VERSION},
         }
