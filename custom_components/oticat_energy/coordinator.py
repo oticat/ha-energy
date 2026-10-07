@@ -82,6 +82,22 @@ def location(hass: HomeAssistant, zone: str | None = None) -> dict[str, Any]:
     return {"latitude": lat, "longitude": lon, "timezone": hass.config.time_zone, "zone": state.name}
 
 
+def entities(conf: dict[str, Any]) -> dict[str, Any]:
+    """This inverter's local entity choices, sent with each plan.
+
+    dom.oti.cat can't read a subentry's settings, so it echoes them back on the site's card and
+    uses them to preselect the fields in Change setup.
+    """
+    return {
+        "soc": conf.get(CONF_SOC_ENTITY),
+        "load": conf.get(CONF_LOAD_ENTITY),
+        "zone": conf.get(CONF_ZONE),
+        "inverter": conf.get(CONF_INVERTER),
+        "inverter_prefix": conf.get(CONF_INVERTER_PREFIX),
+        "program_power": conf.get(CONF_PROGRAM_POWER),
+    }
+
+
 async def request_plan(hass: HomeAssistant, conf: dict[str, Any], body: dict[str, Any]) -> dict[str, Any]:
     """POST one plan request. Used by the coordinator and by the config flow's token check."""
     url = conf.get(CONF_URL, DEFAULT_URL).rstrip("/") + PLAN_PATH
@@ -201,6 +217,7 @@ class EnergyCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             "location": where,
             "state": {"soc": soc},
             "load_history": history,
+            "entities": entities(conf),
             "client": {"integration": self._version, "ha": HA_VERSION},
         }
         try:

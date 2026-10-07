@@ -38,7 +38,7 @@ from .const import (
     INVERTER_NONE,
     SUBENTRY_INVERTER,
 )
-from .coordinator import PlanRequestError, location, read_soc, request_plan
+from .coordinator import PlanRequestError, entities, location, read_soc, request_plan
 
 
 def _inverter_schema(d: dict[str, Any]) -> vol.Schema:
@@ -73,7 +73,8 @@ async def _validate(hass: HomeAssistant, url: str, conf: dict[str, Any]) -> tupl
         if not any(hass.states.get(f"{d}.{prefix}_program_1_soc") for d in ("number", "input_number")):
             return "inverter_not_found", {}
     try:
-        plan = await request_plan(hass, {CONF_URL: url, **conf}, {"location": location(hass, conf.get(CONF_ZONE)), "state": {"soc": soc}})
+        body = {"location": location(hass, conf.get(CONF_ZONE)), "state": {"soc": soc}, "entities": entities(conf)}
+        plan = await request_plan(hass, {CONF_URL: url, **conf}, body)
     except PlanRequestError as err:
         return ("invalid_auth" if err.unauthorized else "cannot_connect"), {}
     return None, plan.get("site", {})
