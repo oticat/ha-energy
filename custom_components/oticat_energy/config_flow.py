@@ -22,6 +22,7 @@ from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers import selector
 
 from .const import (
+    CONF_GRID_ENTITY,
     CONF_INVERTER,
     CONF_INVERTER_PREFIX,
     CONF_LOAD_ENTITY,
@@ -48,6 +49,9 @@ def _inverter_schema(d: dict[str, Any]) -> vol.Schema:
             selector.EntitySelectorConfig(domain=["sensor", "input_number", "number"])
         ),
         vol.Optional(CONF_LOAD_ENTITY, description={"suggested_value": d.get(CONF_LOAD_ENTITY)}): selector.EntitySelector(
+            selector.EntitySelectorConfig(domain="sensor", device_class="energy")
+        ),
+        vol.Optional(CONF_GRID_ENTITY, description={"suggested_value": d.get(CONF_GRID_ENTITY)}): selector.EntitySelector(
             selector.EntitySelectorConfig(domain="sensor", device_class="energy")
         ),
         vol.Required(CONF_ZONE, default=d.get(CONF_ZONE, DEFAULT_ZONE)): selector.EntitySelector(

@@ -34,6 +34,7 @@
             "token": "Site token",
             "soc_entity": "Battery SOC entity",
             "load_entity": "House consumption energy sensor",
+            "grid_entity": "Grid energy sensor (optional)",
             "zone": "Location",
             "inverter": "Inverter control",
             "inverter_prefix": "Inverter entity prefix",
@@ -43,6 +44,7 @@
             "token": "Shown when the site is created on dom.oti.cat.",
             "soc_entity": "State of charge in percent.",
             "load_entity": "Total kWh used by the house, not counting battery charging. The plan learns the hourly pattern from its last 14 days.",
+            "grid_entity": "Total kWh drawn from the grid, so the day chart can show the real grid cost. A signed meter that goes negative while exporting is fine.",
             "zone": "Zone used for the solar forecast and temperature. Home is Home Assistant's own location. To use another place, add a zone in Settings > Areas, labels & zones > Zones.",
             "inverter_prefix": "For number.deye_program_1_soc it is deye.",
             "program_power": "Battery power limit written to every time-of-use program."
@@ -55,6 +57,7 @@
             "token": "Site token",
             "soc_entity": "Battery SOC entity",
             "load_entity": "House consumption energy sensor",
+            "grid_entity": "Grid energy sensor (optional)",
             "zone": "Location",
             "inverter": "Inverter control",
             "inverter_prefix": "Inverter entity prefix",
@@ -64,6 +67,7 @@
             "token": "Shown when the site is created on dom.oti.cat.",
             "soc_entity": "State of charge in percent.",
             "load_entity": "Total kWh used by the house, not counting battery charging. The plan learns the hourly pattern from its last 14 days.",
+            "grid_entity": "Total kWh drawn from the grid, so the day chart can show the real grid cost. A signed meter that goes negative while exporting is fine.",
             "zone": "Zone used for the solar forecast and temperature. Home is Home Assistant's own location. To use another place, add a zone in Settings > Areas, labels & zones > Zones.",
             "inverter_prefix": "For number.deye_program_1_soc it is deye.",
             "program_power": "Battery power limit written to every time-of-use program."

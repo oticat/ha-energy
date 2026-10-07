@@ -48,8 +48,11 @@ restart.
    - **Site token**: shown when you create the site on dom.oti.cat.
    - **Battery SOC entity**: the state of charge in percent.
    - **House consumption energy sensor**: total kWh used by the house, not counting battery
-     charging. The plan learns your hourly pattern from its last 14 days. Until there are 3 days
-     of history it uses REE's standard household profile.
+     charging. The plan learns your hourly pattern from its last 14 days. Until there is a full
+     week of history it uses REE's standard household profile.
+   - **Grid energy sensor** (optional): total kWh drawn from the grid, used by the day chart on
+     dom.oti.cat to show the real grid cost. A signed meter that goes negative while exporting
+     is fine. Without it the chart falls back to an estimate.
    - **Location**: the zone where the panels are, for the solar forecast and temperature. It
      defaults to Home. For another place, add a zone under Settings > Areas, labels & zones >
      Zones first.

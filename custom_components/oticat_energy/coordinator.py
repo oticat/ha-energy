@@ -24,6 +24,7 @@ from homeassistant.loader import async_get_integration
 from homeassistant.util import dt as dt_util
 
 from .const import (
+    CONF_GRID_ENTITY,
     CONF_INVERTER,
     CONF_INVERTER_PREFIX,
     CONF_LOAD_ENTITY,
@@ -91,6 +92,7 @@ def entities(conf: dict[str, Any]) -> dict[str, Any]:
     return {
         "soc": conf.get(CONF_SOC_ENTITY),
         "load": conf.get(CONF_LOAD_ENTITY),
+        "grid": conf.get(CONF_GRID_ENTITY),
         "zone": conf.get(CONF_ZONE),
         "inverter": conf.get(CONF_INVERTER),
         "inverter_prefix": conf.get(CONF_INVERTER_PREFIX),
@@ -140,8 +142,7 @@ class EnergyCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         self.subentry = subentry
         self.plan: dict[str, Any] | None = None
         self.error: str | None = None
-        self._history: list[dict[str, Any]] = []
-        self._history_at: datetime | None = None
+        self._history: dict[str, tuple[datetime, list[dict[str, Any]]]] = {}
         self._version: str | None = None
         conf = self.conf
         self.writer: DeyeWriter | None = None
@@ -175,13 +176,18 @@ class EnergyCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                 self.hass, self.writer.async_apply(self.data["segments"]), f"oticat_energy_inverter_{self.subentry.subentry_id}"
             )
 
-    async def _load_history(self) -> list[dict[str, Any]]:
-        entity_id = self.conf.get(CONF_LOAD_ENTITY)
+    async def _entity_history(self, entity_id: str | None) -> list[dict[str, Any]]:
+        """The last 14 days of hourly `change` for one energy sensor, refreshed hourly.
+
+        The grid sensor may be signed (negative while exporting); `change` keeps the sign, so
+        the service can turn each hour into a grid cost or a little export revenue.
+        """
         if not entity_id:
             return []
         now = dt_util.utcnow()
-        if self._history_at and now - self._history_at < HISTORY_REFRESH:
-            return self._history
+        cached = self._history.get(entity_id)
+        if cached and now - cached[0] < HISTORY_REFRESH:
+            return cached[1]
         start = now.replace(minute=0, second=0, microsecond=0) - timedelta(days=HISTORY_DAYS)
         stats = await get_instance(self.hass).async_add_executor_job(
             statistics_during_period,
@@ -193,13 +199,13 @@ class EnergyCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             {"energy": "kWh"},
             {"change"},
         )
-        self._history = [
+        rows = [
             {"start": dt_util.utc_from_timestamp(row["start"]).isoformat(), "kwh": round(row["change"], 4)}
             for row in stats.get(entity_id, [])
             if row.get("change") is not None
         ]
-        self._history_at = now
-        return self._history
+        self._history[entity_id] = (now, rows)
+        return rows
 
     async def _async_update_data(self) -> dict[str, Any]:
         conf = self.conf
@@ -208,15 +214,18 @@ class EnergyCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             self.error = f"{conf[CONF_SOC_ENTITY]} has no value"
             return self.view()
         try:
-            history = await self._load_history()
+            load_history = await self._entity_history(conf.get(CONF_LOAD_ENTITY))
+            grid_history = await self._entity_history(conf.get(CONF_GRID_ENTITY))
         except Exception as err:  # noqa: BLE001 - a recorder problem must not stop planning
-            _LOGGER.warning("Could not read load history: %s", err)
-            history = self._history
+            _LOGGER.warning("Could not read history: %s", err)
+            load_history = self._history.get(conf.get(CONF_LOAD_ENTITY) or "", (None, []))[1]
+            grid_history = self._history.get(conf.get(CONF_GRID_ENTITY) or "", (None, []))[1]
         where = location(self.hass, conf.get(CONF_ZONE))
         body = {
             "location": where,
             "state": {"soc": soc},
-            "load_history": history,
+            "load_history": load_history,
+            "grid_history": grid_history,
             "entities": entities(conf),
             "client": {"integration": self._version, "ha": HA_VERSION},
         }

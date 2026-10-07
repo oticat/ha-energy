@@ -34,6 +34,7 @@
             "token": "Token del lloc",
             "soc_entity": "Entitat de SOC de la bateria",
             "load_entity": "Sensor d'energia consumida per la casa",
+            "grid_entity": "Sensor d'energia de la xarxa (opcional)",
             "zone": "Ubicació",
             "inverter": "Control de l'inversor",
             "inverter_prefix": "Prefix de les entitats de l'inversor",
@@ -43,6 +44,7 @@
             "token": "Es mostra en crear el lloc a dom.oti.cat.",
             "soc_entity": "Estat de càrrega en percentatge.",
             "load_entity": "kWh totals que gasta la casa, sense comptar la càrrega de la bateria. El pla n'aprèn el patró horari dels darrers 14 dies.",
+            "grid_entity": "kWh totals que es prenen de la xarxa, perquè el gràfic del dia pugui mostrar el cost real de xarxa. Un comptador amb signe que es torna negatiu quan s'aboca a la xarxa també serveix.",
             "zone": "Zona per a la previsió solar i la temperatura. Casa és la ubicació del mateix Home Assistant. Per fer servir un altre lloc, afegeix una zona a Configuració > Àrees, etiquetes i zones > Zones.",
             "inverter_prefix": "Per a number.deye_program_1_soc és deye.",
             "program_power": "Límit de potència de la bateria que s'escriu a cada programa horari."
@@ -55,6 +57,7 @@
             "token": "Token del lloc",
             "soc_entity": "Entitat de SOC de la bateria",
             "load_entity": "Sensor d'energia consumida per la casa",
+            "grid_entity": "Sensor d'energia de la xarxa (opcional)",
             "zone": "Ubicació",
             "inverter": "Control de l'inversor",
             "inverter_prefix": "Prefix de les entitats de l'inversor",
@@ -64,6 +67,7 @@
             "token": "Es mostra en crear el lloc a dom.oti.cat.",
             "soc_entity": "Estat de càrrega en percentatge.",
             "load_entity": "kWh totals que gasta la casa, sense comptar la càrrega de la bateria. El pla n'aprèn el patró horari dels darrers 14 dies.",
+            "grid_entity": "kWh totals que es prenen de la xarxa, perquè el gràfic del dia pugui mostrar el cost real de xarxa. Un comptador amb signe que es torna negatiu quan s'aboca a la xarxa també serveix.",
             "zone": "Zona per a la previsió solar i la temperatura. Casa és la ubicació del mateix Home Assistant. Per fer servir un altre lloc, afegeix una zona a Configuració > Àrees, etiquetes i zones > Zones.",
             "inverter_prefix": "Per a number.deye_program_1_soc és deye.",
             "program_power": "Límit de potència de la bateria que s'escriu a cada programa horari."
