@@ -106,7 +106,11 @@ In **Inverter automation**, add a site and fill in what it needs to know about y
 battery, the solar panels, the grid contract and the water heaters. The site also gives you a
 **token**, shown once, which is how the integration proves who it is.
 
+![The Inverter automation page on dom.oti.cat](docs/dom-sites.png)
+
 Each site is one place, and it can drive one inverter and its water heaters.
+
+![The site settings](docs/dom-settings.png)
 
 ### 2. Add the integration in Home Assistant
 
