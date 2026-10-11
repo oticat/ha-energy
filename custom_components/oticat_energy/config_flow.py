@@ -28,7 +28,10 @@ from homeassistant.helpers import selector
 from .const import (
     CONF_GRID_ENTITY,
     CONF_GRID_EXPORT_ENTITY,
+    CONF_HEATER_CHEAP_PRICE,
     CONF_HEATER_CONSUMING_STATE,
+    CONF_HEATER_DRY_DAYS,
+    CONF_HEATER_EXPORT_MIN_KWH,
     CONF_HEATER_FLOW_ENTITY,
     CONF_HEATER_GRID_ENTITY,
     CONF_HEATER_MARGIN,
@@ -47,7 +50,10 @@ from .const import (
     CONF_TOKEN,
     CONF_URL,
     CONF_ZONE,
+    DEFAULT_HEATER_CHEAP_PRICE,
     DEFAULT_HEATER_CONSUMING_STATE,
+    DEFAULT_HEATER_DRY_DAYS,
+    DEFAULT_HEATER_EXPORT_MIN_KWH,
     DEFAULT_HEATER_HVAC_MODE,
     DEFAULT_HEATER_MARGIN,
     DEFAULT_HEATER_MAX_AZIMUTH,
@@ -86,6 +92,22 @@ def _degrees(minimum: float, maximum: float) -> selector.NumberSelector:
     )
 
 
+def _kwh(minimum: float, maximum: float, step: float) -> selector.NumberSelector:
+    return selector.NumberSelector(
+        selector.NumberSelectorConfig(
+            min=minimum, max=maximum, step=step, unit_of_measurement="kWh", mode=selector.NumberSelectorMode.BOX
+        )
+    )
+
+
+def _price(minimum: float, maximum: float, step: float) -> selector.NumberSelector:
+    return selector.NumberSelector(
+        selector.NumberSelectorConfig(
+            min=minimum, max=maximum, step=step, unit_of_measurement="€/kWh", mode=selector.NumberSelectorMode.BOX
+        )
+    )
+
+
 def _heater_sections(d: dict[str, Any]) -> dict[Any, Any]:
     """The collapsible water-heater sections: shared settings plus one section per heater slot.
 
@@ -118,6 +140,17 @@ def _heater_sections(d: dict[str, Any]) -> dict[Any, Any]:
         vol.Optional(
             CONF_HEATER_MAX_AZIMUTH, default=d.get(CONF_HEATER_MAX_AZIMUTH, DEFAULT_HEATER_MAX_AZIMUTH)
         ): _degrees(181, 360),
+        vol.Optional(
+            CONF_HEATER_DRY_DAYS, default=d.get(CONF_HEATER_DRY_DAYS, DEFAULT_HEATER_DRY_DAYS)
+        ): selector.NumberSelector(
+            selector.NumberSelectorConfig(min=1, max=10, step=1, mode=selector.NumberSelectorMode.BOX)
+        ),
+        vol.Optional(
+            CONF_HEATER_EXPORT_MIN_KWH, default=d.get(CONF_HEATER_EXPORT_MIN_KWH, DEFAULT_HEATER_EXPORT_MIN_KWH)
+        ): _kwh(0, 50, 0.1),
+        vol.Optional(
+            CONF_HEATER_CHEAP_PRICE, default=d.get(CONF_HEATER_CHEAP_PRICE, DEFAULT_HEATER_CHEAP_PRICE)
+        ): _price(0, 1, 0.005),
     }
     out: dict[Any, Any] = {vol.Optional(SECTION_WATER_HEATERS): section(vol.Schema(shared), {"collapsed": True})}
     for i in range(1, MAX_HEATERS + 1):

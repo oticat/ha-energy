@@ -65,7 +65,10 @@
                 "heater_margin": "Marge anti-oscil·lació (W)",
                 "heater_min_elevation": "Elevació mínima del sol (°)",
                 "heater_min_azimuth": "Límit est de l'azimut (°)",
-                "heater_max_azimuth": "Límit oest de l'azimut (°)"
+                "heater_max_azimuth": "Límit oest de l'azimut (°)",
+                "heater_dry_days": "Dies sense excedent per recarregar",
+                "heater_export_min_kwh": "Excedent que compta com a exportació (kWh)",
+                "heater_cheap_price": "Preu barat durant una sequera (€/kWh)"
               },
               "data_description": {
                 "heater_grid_entity": "Potència de xarxa en W, amb signe o amb el sensor de direcció de sota. Els escalfadors aprofiten l'excedent que mostra i s'aturen quan puja massa.",
@@ -76,7 +79,10 @@
                 "heater_margin": "Banda d'histèresi al voltant dels llindars, en W.",
                 "heater_min_elevation": "No escalfar amb excedent quan el sol és per sota d'aquest angle.",
                 "heater_min_azimuth": "No escalfar amb excedent mentre el sol és per sota d'això (ombra del matí). 90 = est.",
-                "heater_max_azimuth": "No escalfar amb excedent mentre el sol és per sobre d'això (ombra de la tarda). 270 = oest."
+                "heater_max_azimuth": "No escalfar amb excedent mentre el sol és per sobre d'això (ombra de la tarda). 270 = oest.",
+                "heater_dry_days": "Quan el lloc porta aquests dies sencers sense exportar excedent, els escalfadors probablement van curts: aleshores també poden escalfar de xarxa en hores barates. Amb 2 dobleguem les ~5 sequeres reals per any.",
+                "heater_export_min_kwh": "Un dia compta com a sec quan ha exportat menys d'això. Normalment 0,5.",
+                "heater_cheap_price": "Durant una sequera els escalfadors també poden escalfar de xarxa a aquest preu o menys. El termòstat limita l'energia, així que només costa uns quants kWh uns quants dies l'any."
               }
             },
             "heater_1": {
@@ -171,7 +177,10 @@
                 "heater_margin": "Marge anti-oscil·lació (W)",
                 "heater_min_elevation": "Elevació mínima del sol (°)",
                 "heater_min_azimuth": "Límit est de l'azimut (°)",
-                "heater_max_azimuth": "Límit oest de l'azimut (°)"
+                "heater_max_azimuth": "Límit oest de l'azimut (°)",
+                "heater_dry_days": "Dies sense excedent per recarregar",
+                "heater_export_min_kwh": "Excedent que compta com a exportació (kWh)",
+                "heater_cheap_price": "Preu barat durant una sequera (€/kWh)"
               },
               "data_description": {
                 "heater_grid_entity": "Potència de xarxa en W, amb signe o amb el sensor de direcció de sota. Els escalfadors aprofiten l'excedent que mostra i s'aturen quan puja massa.",
@@ -182,7 +191,10 @@
                 "heater_margin": "Banda d'histèresi al voltant dels llindars, en W.",
                 "heater_min_elevation": "No escalfar amb excedent quan el sol és per sota d'aquest angle.",
                 "heater_min_azimuth": "No escalfar amb excedent mentre el sol és per sota d'això (ombra del matí). 90 = est.",
-                "heater_max_azimuth": "No escalfar amb excedent mentre el sol és per sobre d'això (ombra de la tarda). 270 = oest."
+                "heater_max_azimuth": "No escalfar amb excedent mentre el sol és per sobre d'això (ombra de la tarda). 270 = oest.",
+                "heater_dry_days": "Quan el lloc porta aquests dies sencers sense exportar excedent, els escalfadors probablement van curts: aleshores també poden escalfar de xarxa en hores barates. Amb 2 dobleguem les ~5 sequeres reals per any.",
+                "heater_export_min_kwh": "Un dia compta com a sec quan ha exportat menys d'això. Normalment 0,5.",
+                "heater_cheap_price": "Durant una sequera els escalfadors també poden escalfar de xarxa a aquest preu o menys. El termòstat limita l'energia, així que només costa uns quants kWh uns quants dies l'any."
               }
             },
             "heater_1": {

@@ -187,11 +187,12 @@ class EnergyCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                 self.hass, self.writer.async_apply(self.data["segments"]), f"oticat_energy_inverter_{self.subentry.subentry_id}"
             )
 
-    async def _entity_history(self, entity_id: str | None) -> list[dict[str, Any]]:
+    async def entity_history(self, entity_id: str | None) -> list[dict[str, Any]]:
         """The last 14 days of hourly `change` for one energy sensor, refreshed hourly.
 
         The grid sensor may be signed (negative while exporting); `change` keeps the sign, so
-        the service can turn each hour into a grid cost or a little export revenue.
+        the service can turn each hour into a grid cost or a little export revenue. The water
+        heater control reuses it to count the days without surplus.
         """
         if not entity_id:
             return []
@@ -235,7 +236,7 @@ class EnergyCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         histories: dict[str, list[dict[str, Any]]] = {}
         try:
             for key, entity_id in wanted.items():
-                histories[key] = await self._entity_history(entity_id)
+                histories[key] = await self.entity_history(entity_id)
         except Exception as err:  # noqa: BLE001 - a recorder problem must not stop planning
             _LOGGER.warning("Could not read history: %s", err)
             for key, entity_id in wanted.items():
@@ -279,6 +280,7 @@ class EnergyCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                 "grid_charge": False,
                 "soc_target": min_soc,
                 "preheat": False,
+                "price": None,
                 "segments": fallback_segments(min_soc, count),
                 "plan": plan,
             }
@@ -290,6 +292,8 @@ class EnergyCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             "soc_target": current["soc_target"],
             # This hour's buy price is cheap enough to heat from the grid without surplus.
             "preheat": bool(current.get("preheat", False)),
+            # This hour's PVPC buy price, for the water heater's cheap-hour decision.
+            "price": current.get("price"),
             "segments": plan["segments"],
             "plan": plan,
         }

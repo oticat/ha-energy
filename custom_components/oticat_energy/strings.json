@@ -65,7 +65,10 @@
                 "heater_margin": "Anti-flapping margin (W)",
                 "heater_min_elevation": "Minimum sun elevation (°)",
                 "heater_min_azimuth": "East azimuth boundary (°)",
-                "heater_max_azimuth": "West azimuth boundary (°)"
+                "heater_max_azimuth": "West azimuth boundary (°)",
+                "heater_dry_days": "Days without surplus to top up",
+                "heater_export_min_kwh": "Surplus that counts as exporting (kWh)",
+                "heater_cheap_price": "Cheap price during a dry spell (€/kWh)"
               },
               "data_description": {
                 "heater_grid_entity": "Grid power in W, signed or with the direction sensor below. The heaters run on the surplus it shows, and stop when it climbs too high.",
@@ -76,7 +79,10 @@
                 "heater_margin": "Hysteresis band around the thresholds, in W.",
                 "heater_min_elevation": "Do not heat on surplus when the sun is below this angle.",
                 "heater_min_azimuth": "Do not heat on surplus while the sun is below this (morning shade). 90 = due east.",
-                "heater_max_azimuth": "Do not heat on surplus while the sun is above this (evening shade). 270 = due west."
+                "heater_max_azimuth": "Do not heat on surplus while the sun is above this (evening shade). 270 = due west.",
+                "heater_dry_days": "When the site has gone this many full days without exporting surplus, the heaters are probably running short: they may then also heat from the grid in the cheap hours. 2 doubles the roughly five real dry spells a year.",
+                "heater_export_min_kwh": "A day counts as dry when it exported less than this. Usually 0.5.",
+                "heater_cheap_price": "During a dry spell the heaters may also heat from the grid at or below this price. The thermostat caps the energy, so it only costs a few kWh a few days a year."
               }
             },
             "heater_1": {
@@ -171,7 +177,10 @@
                 "heater_margin": "Anti-flapping margin (W)",
                 "heater_min_elevation": "Minimum sun elevation (°)",
                 "heater_min_azimuth": "East azimuth boundary (°)",
-                "heater_max_azimuth": "West azimuth boundary (°)"
+                "heater_max_azimuth": "West azimuth boundary (°)",
+                "heater_dry_days": "Days without surplus to top up",
+                "heater_export_min_kwh": "Surplus that counts as exporting (kWh)",
+                "heater_cheap_price": "Cheap price during a dry spell (€/kWh)"
               },
               "data_description": {
                 "heater_grid_entity": "Grid power in W, signed or with the direction sensor below. The heaters run on the surplus it shows, and stop when it climbs too high.",
@@ -182,7 +191,10 @@
                 "heater_margin": "Hysteresis band around the thresholds, in W.",
                 "heater_min_elevation": "Do not heat on surplus when the sun is below this angle.",
                 "heater_min_azimuth": "Do not heat on surplus while the sun is below this (morning shade). 90 = due east.",
-                "heater_max_azimuth": "Do not heat on surplus while the sun is above this (evening shade). 270 = due west."
+                "heater_max_azimuth": "Do not heat on surplus while the sun is above this (evening shade). 270 = due west.",
+                "heater_dry_days": "When the site has gone this many full days without exporting surplus, the heaters are probably running short: they may then also heat from the grid in the cheap hours. 2 doubles the roughly five real dry spells a year.",
+                "heater_export_min_kwh": "A day counts as dry when it exported less than this. Usually 0.5.",
+                "heater_cheap_price": "During a dry spell the heaters may also heat from the grid at or below this price. The thermostat caps the energy, so it only costs a few kWh a few days a year."
               }
             },
             "heater_1": {

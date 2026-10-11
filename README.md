@@ -107,6 +107,13 @@ starts importing too much, when the sun leaves the window, or when the cheap hou
 replaces the `solar_surplus_heater` automation blueprint for these devices. Its state shows on
 **Water heaters**, a sensor with the count and each device's state.
 
+On top of the always-cheap hours, the heaters are topped up during a **dry spell**: when the site
+has gone **Days without surplus to top up** full days without exporting surplus (surplus only
+leaves once the tank is full, so this means the heaters are running short), they may also heat
+from the grid at or below **Cheap price during a dry spell**. A day counts as dry when it exported
+less than **Surplus that counts as exporting**. The thermostat caps the energy, so this costs a
+few kWh only a handful of days a year — no tank sensor needed.
+
 ## What is sent to the service
 
 Each request sends the chosen zone's coordinates and name, your time zone, the current battery SOC and the

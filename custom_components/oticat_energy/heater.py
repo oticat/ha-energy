@@ -22,7 +22,11 @@ from homeassistant.helpers.event import async_track_state_change_event, async_tr
 from homeassistant.util import dt as dt_util
 
 from .const import (
+    CONF_GRID_EXPORT_ENTITY,
+    CONF_HEATER_CHEAP_PRICE,
     CONF_HEATER_CONSUMING_STATE,
+    CONF_HEATER_DRY_DAYS,
+    CONF_HEATER_EXPORT_MIN_KWH,
     CONF_HEATER_FLOW_ENTITY,
     CONF_HEATER_GRID_ENTITY,
     CONF_HEATER_MARGIN,
@@ -31,7 +35,10 @@ from .const import (
     CONF_HEATER_MIN_AZIMUTH,
     CONF_HEATER_MIN_ELEVATION,
     CONF_HEATER_SURPLUS_W,
+    DEFAULT_HEATER_CHEAP_PRICE,
     DEFAULT_HEATER_CONSUMING_STATE,
+    DEFAULT_HEATER_DRY_DAYS,
+    DEFAULT_HEATER_EXPORT_MIN_KWH,
     DEFAULT_HEATER_HVAC_MODE,
     DEFAULT_HEATER_MARGIN,
     DEFAULT_HEATER_MAX_AZIMUTH,
@@ -80,6 +87,13 @@ class HeaterConfig:
     min_elevation: float
     min_azimuth: float
     max_azimuth: float
+    # Dry-spell top-up: after this many full days without exporting surplus, the heaters may
+    # also heat from the grid in hours at or below cheap_price (the always-cheap hours come
+    # from the service's preheat flag).
+    export_entity: str | None = None
+    dry_days: int = DEFAULT_HEATER_DRY_DAYS
+    export_min_kwh: float = DEFAULT_HEATER_EXPORT_MIN_KWH
+    cheap_price: float = DEFAULT_HEATER_CHEAP_PRICE
 
 
 @dataclass
@@ -178,6 +192,12 @@ def config_from(conf: dict[str, Any]) -> HeaterConfig | None:
         min_elevation=float(conf.get(CONF_HEATER_MIN_ELEVATION, DEFAULT_HEATER_MIN_ELEVATION)),
         min_azimuth=float(conf.get(CONF_HEATER_MIN_AZIMUTH, DEFAULT_HEATER_MIN_AZIMUTH)),
         max_azimuth=float(conf.get(CONF_HEATER_MAX_AZIMUTH, DEFAULT_HEATER_MAX_AZIMUTH)),
+        # The export register the day chart already uses; if the site has none, the signed grid
+        # sensor is used instead.
+        export_entity=conf.get(CONF_GRID_EXPORT_ENTITY) or None,
+        dry_days=int(conf.get(CONF_HEATER_DRY_DAYS, DEFAULT_HEATER_DRY_DAYS)),
+        export_min_kwh=float(conf.get(CONF_HEATER_EXPORT_MIN_KWH, DEFAULT_HEATER_EXPORT_MIN_KWH)),
+        cheap_price=float(conf.get(CONF_HEATER_CHEAP_PRICE, DEFAULT_HEATER_CHEAP_PRICE)),
     )
 
 
@@ -204,6 +224,9 @@ class HeaterController:
         self.config = config_from(coordinator.conf)
         self.status = "idle"
         self.devices: list[_HeaterView] = []
+        self.days_without_export = 0
+        self.price: float | None = None
+        self._dry_cache: tuple[float, int] | None = None
         self._unsubs: list[Any] = []
         self._listeners: list[Any] = []
         self._lock = asyncio.Lock()
@@ -275,9 +298,11 @@ class HeaterController:
                     break
 
     def view(self) -> dict[str, Any]:
-        """The heaters' state, for the action sensor's attributes."""
+        """The heaters' state, for the Water heaters sensor's attributes."""
         return {
             "status": self.status,
+            "days_without_export": self.days_without_export,
+            "price": self.price,
             "devices": [
                 {"entity": d.entity, "power": d.power, "on": d.on, "want": d.want} for d in self.devices
             ],
@@ -309,9 +334,11 @@ class HeaterController:
             return power if flow.state == config.consuming else -power
         return power
 
-    def _snapshot(self, config: HeaterConfig) -> Snapshot:
+    def _snapshot_devices(self, config: HeaterConfig) -> tuple[list[bool], list[float | None], list[float | None]]:
         now = dt_util.utcnow()
-        on, on_seconds, off_seconds = [], [], []
+        on: list[bool] = []
+        on_seconds: list[float | None] = []
+        off_seconds: list[float | None] = []
         for heater in config.heaters:
             state = self.hass.states.get(heater.entity)
             is_on = _is_on(state, heater.is_climate)
@@ -319,11 +346,69 @@ class HeaterController:
             on.append(is_on)
             on_seconds.append(elapsed if is_on else None)
             off_seconds.append(elapsed if not is_on else None)
+        return on, on_seconds, off_seconds
+
+    def _current_price(self) -> float | None:
+        price = (self.coordinator.data or {}).get("price")
+        try:
+            return float(price) if price is not None else None
+        except (TypeError, ValueError):
+            return None
+
+    async def _dry_spell(self, config: HeaterConfig) -> int:
+        """How many full local days in a row the site has not exported surplus.
+
+        No tank sensor is needed: surplus only leaves once the heaters are full, so days without
+        export are the best sign we have that they are running short. Cached for an hour, and
+        only recomputed from the recorder's hourly export (the day chart's sensor, or the signed
+        grid sensor when there is no export register).
+        """
+        now = dt_util.utcnow().timestamp()
+        if self._dry_cache is not None and now - self._dry_cache[0] < 3600:
+            return self._dry_cache[1]
+        count = 0
+        try:
+            entity = config.export_entity
+            sign = 1.0
+            if entity is None:
+                # A signed grid meter exports as a negative change.
+                entity, sign = config.grid_entity, -1.0
+            rows = await self.coordinator.entity_history(entity)
+            days: dict[Any, float] = {}
+            for row in rows:
+                when = dt_util.parse_datetime(row["start"])
+                if when is None:
+                    continue
+                day = dt_util.as_local(when).date()
+                days[day] = days.get(day, 0.0) + sign * row["kwh"]
+            day = dt_util.now().date() - timedelta(days=1)
+            while day in days and days[day] < config.export_min_kwh:
+                count += 1
+                day -= timedelta(days=1)
+        except Exception as err:  # noqa: BLE001 - a recorder problem must not stop the heaters
+            _LOGGER.warning("Counting the days without export failed: %s", err)
+            count = 0
+        self._dry_cache = (now, count)
+        return count
+
+    async def _snapshot(self, config: HeaterConfig) -> Snapshot:
+        on, on_seconds, off_seconds = self._snapshot_devices(config)
+        self.price = self._current_price()
+        self.days_without_export = await self._dry_spell(config)
+        # The service's preheat flag is the always-cheap tier (price at or below the site's max).
+        # On top of it, a dry spell adds the cheap hours: the heaters get topped up from the grid
+        # a few days a year, when the sun has not exported for dry_days.
+        always = bool((self.coordinator.data or {}).get("preheat"))
+        cheap = (
+            self.days_without_export >= config.dry_days
+            and self.price is not None
+            and self.price <= config.cheap_price
+        )
         return Snapshot(
             grid_power=self._grid_power(config),
             sun_elevation=_float_attr(self.hass, "sun.sun", "elevation", -90.0),
             sun_azimuth=_float_attr(self.hass, "sun.sun", "azimuth", 180.0),
-            preheat=bool((self.coordinator.data or {}).get("preheat")),
+            preheat=always or cheap,
             on=on,
             on_seconds=on_seconds,
             off_seconds=off_seconds,
@@ -334,7 +419,7 @@ class HeaterController:
     async def _apply(self) -> None:
         config = self.config
         assert config is not None
-        snapshot = self._snapshot(config)
+        snapshot = await self._snapshot(config)
         want = decide(config, snapshot)
         changed: list[str] = []
         devices: list[_HeaterView] = []

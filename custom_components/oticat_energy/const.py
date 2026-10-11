@@ -48,6 +48,11 @@ CONF_HEATER_MARGIN = "heater_margin"                # anti-flapping hysteresis, 
 CONF_HEATER_MIN_ELEVATION = "heater_min_elevation"
 CONF_HEATER_MIN_AZIMUTH = "heater_min_azimuth"
 CONF_HEATER_MAX_AZIMUTH = "heater_max_azimuth"
+# Dry-spell top-up: when the site has gone this many full days without exporting surplus, the
+# heaters are probably undercharged, so grid heating is allowed in the cheap hours too.
+CONF_HEATER_DRY_DAYS = "heater_dry_days"
+CONF_HEATER_EXPORT_MIN_KWH = "heater_export_min_kwh"
+CONF_HEATER_CHEAP_PRICE = "heater_cheap_price"
 
 DEFAULT_HEATER_CONSUMING_STATE = "consuming"
 DEFAULT_HEATER_SURPLUS_W = 100
@@ -57,3 +62,6 @@ DEFAULT_HEATER_MIN_ELEVATION = 10
 DEFAULT_HEATER_MIN_AZIMUTH = 90
 DEFAULT_HEATER_MAX_AZIMUTH = 270
 DEFAULT_HEATER_HVAC_MODE = "heat"
+DEFAULT_HEATER_DRY_DAYS = 2
+DEFAULT_HEATER_EXPORT_MIN_KWH = 0.5
+DEFAULT_HEATER_CHEAP_PRICE = 0.15
