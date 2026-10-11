@@ -321,12 +321,15 @@ class HeaterController:
                 await self._set(heater, should)
                 changed.append(f"{heater.entity} {'on' if should else 'off'}")
         self.devices = [
-            _HeaterView(entity=h.entity, power=h.power, on=is_on, want=should)
-            for h, is_on, should in zip(config.heaters, snapshot.on, want)
+            _HeaterView(entity=h.entity, power=h.power, on=should, want=should)
+            for h, should in zip(config.heaters, want)
         ]
         self.status = "; ".join(changed) if changed else "idle"
         if changed:
             _LOGGER.debug("Water heaters: %s", self.status)
+            # Republish so the action sensor's `heaters` attribute shows what just happened,
+            # instead of waiting up to 15 minutes for the next plan refresh.
+            self.coordinator.async_set_updated_data(self.coordinator.view())
 
     async def _set(self, heater: Heater, on: bool) -> None:
         if heater.is_climate:
