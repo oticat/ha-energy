@@ -271,6 +271,7 @@ class EnergyCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                 "action": "self_consume",
                 "grid_charge": False,
                 "soc_target": min_soc,
+                "preheat": False,
                 "segments": fallback_segments(min_soc, count),
                 "plan": plan,
             }
@@ -280,6 +281,8 @@ class EnergyCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             "action": current["action"],
             "grid_charge": current["grid_charge"],
             "soc_target": current["soc_target"],
+            # This hour's buy price is cheap enough to heat from the grid without surplus.
+            "preheat": bool(current.get("preheat", False)),
             "segments": plan["segments"],
             "plan": plan,
         }

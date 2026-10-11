@@ -75,6 +75,7 @@ For each inverter:
 | Battery action | `charge`, `hold` or `self_consume` for the current hour. Attributes hold the full plan, the inverter programs and the plan status |
 | Target SOC | The SOC the battery charges to or holds at this hour |
 | Grid charging | On while the plan charges from the grid |
+| Cheap-grid preheat | On in the hours whose buy price is low enough to heat water from the grid without surplus. Wire it into a surplus-heater automation to heat on cheap grid too |
 | Expected savings | Euros saved until the end of the plan compared with plain self-consumption, counting the energy left in the battery |
 | Planned grid cost | Euros the plan spends on grid energy until its end |
 

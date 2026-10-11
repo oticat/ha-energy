@@ -126,6 +126,9 @@
     "binary_sensor": {
       "grid_charge": {
         "name": "Càrrega de la xarxa"
+      },
+      "preheat": {
+        "name": "Preescalfament amb xarxa barata"
       }
     }
   }
