@@ -223,7 +223,9 @@ class HeaterController:
         self._unsubs.append(async_track_state_change_event(self.hass, watched, self._changed))
         self._unsubs.append(async_track_time_interval(self.hass, self._tick, TICK))
         self._unsubs.append(self.coordinator.async_add_listener(self._changed))
-        await self._evaluate()
+        # First evaluation as a task, never inside setup: a blocking service call in the setup
+        # call stack can wedge a config-entry reload.
+        self._changed()
 
     @callback
     def async_stop(self) -> None:
@@ -277,6 +279,10 @@ class HeaterController:
         except ValueError:
             return None
 
+    def _unavailable(self, entity_id: str) -> bool:
+        state = self.hass.states.get(entity_id)
+        return state is None or state.state in _INVALID
+
     def _grid_power(self, config: HeaterConfig) -> float | None:
         power = self._num(config.grid_entity)
         if power is None:
@@ -316,20 +322,23 @@ class HeaterController:
         snapshot = self._snapshot(config)
         want = decide(config, snapshot)
         changed: list[str] = []
+        devices: list[_HeaterView] = []
         for heater, is_on, should in zip(config.heaters, snapshot.on, want):
-            if is_on != should:
+            # A device that is unavailable is left alone; it is evaluated again when it returns.
+            if not self._unavailable(heater.entity) and is_on != should:
                 await self._set(heater, should)
                 changed.append(f"{heater.entity} {'on' if should else 'off'}")
-        self.devices = [
-            _HeaterView(entity=h.entity, power=h.power, on=should, want=should)
-            for h, should in zip(config.heaters, want)
-        ]
+                is_on = should
+            devices.append(_HeaterView(entity=heater.entity, power=heater.power, on=is_on, want=should))
+        self.devices = devices
         self.status = "; ".join(changed) if changed else "idle"
         if changed:
             _LOGGER.debug("Water heaters: %s", self.status)
             # Republish so the action sensor's `heaters` attribute shows what just happened,
-            # instead of waiting up to 15 minutes for the next plan refresh.
-            self.coordinator.async_set_updated_data(self.coordinator.view())
+            # instead of waiting up to 15 minutes for the next plan refresh. Never before the
+            # coordinator's first refresh, to keep it out of the entry setup.
+            if self.coordinator.data is not None:
+                self.coordinator.async_set_updated_data(self.coordinator.view())
 
     async def _set(self, heater: Heater, on: bool) -> None:
         if heater.is_climate:
