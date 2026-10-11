@@ -19,15 +19,16 @@ async def async_setup_entry(
     hass: HomeAssistant, entry: EnergyConfigEntry, async_add_entities: AddConfigEntryEntitiesCallback
 ) -> None:
     for subentry_id, c in entry.runtime_data.items():
-        async_add_entities(
-            [
-                ActionSensor(c),
-                SocTargetSensor(c),
-                PlanMoneySensor(c, "savings", "savings_eur"),
-                PlanMoneySensor(c, "planned_cost", "cost_eur"),
-            ],
-            config_subentry_id=subentry_id,
-        )
+        entities: list[SensorEntity] = [
+            ActionSensor(c),
+            SocTargetSensor(c),
+            PlanMoneySensor(c, "savings", "savings_eur"),
+            PlanMoneySensor(c, "planned_cost", "cost_eur"),
+        ]
+        # Only when the site has water heaters set up.
+        if c.heater.active:
+            entities.append(HeaterSensor(c))
+        async_add_entities(entities, config_subentry_id=subentry_id)
 
 
 class ActionSensor(EnergyEntity, SensorEntity):
@@ -36,7 +37,7 @@ class ActionSensor(EnergyEntity, SensorEntity):
     _attr_device_class = SensorDeviceClass.ENUM
     _attr_options = ACTIONS
     # The hour-by-hour plan changes every 15 minutes and would bloat the recorder.
-    _unrecorded_attributes = frozenset({"hours", "segments", "sources", "heaters"})
+    _unrecorded_attributes = frozenset({"hours", "segments", "sources"})
 
     def __init__(self, coordinator) -> None:
         super().__init__(coordinator, "action")
@@ -60,7 +61,6 @@ class ActionSensor(EnergyEntity, SensorEntity):
             "hours": plan.get("hours", []),
             "sources": plan.get("sources"),
             "inverter": self.coordinator.writer.status if self.coordinator.writer else None,
-            "heaters": d.get("heaters"),
         }
 
 
@@ -92,3 +92,28 @@ class PlanMoneySensor(EnergyEntity, SensorEntity):
         if d["status"] == "fallback" or not d.get("plan"):
             return None
         return d["plan"].get(self._field)
+
+
+class HeaterSensor(EnergyEntity, SensorEntity):
+    """How many water heaters are running, and what each one is doing.
+
+    Only exists when the site has water heaters configured. The controller updates it the
+    moment a heater changes, not on the 15-minute plan refresh.
+    """
+
+    _attr_icon = "mdi:water-boiler"
+
+    def __init__(self, coordinator) -> None:
+        super().__init__(coordinator, "heaters")
+
+    async def async_added_to_hass(self) -> None:
+        await super().async_added_to_hass()
+        self.async_on_remove(self.coordinator.heater.async_add_listener(self.async_write_ha_state))
+
+    @property
+    def native_value(self) -> int:
+        return sum(1 for heater in self.coordinator.heater.devices if heater.on)
+
+    @property
+    def extra_state_attributes(self) -> dict[str, Any]:
+        return self.coordinator.heater.view()

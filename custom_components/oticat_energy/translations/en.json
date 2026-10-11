@@ -281,6 +281,9 @@
       },
       "planned_cost": {
         "name": "Planned grid cost"
+      },
+      "heaters": {
+        "name": "Water heaters"
       }
     },
     "binary_sensor": {

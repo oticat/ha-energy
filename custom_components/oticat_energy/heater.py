@@ -205,12 +205,27 @@ class HeaterController:
         self.status = "idle"
         self.devices: list[_HeaterView] = []
         self._unsubs: list[Any] = []
+        self._listeners: list[Any] = []
         self._lock = asyncio.Lock()
         self._pending = False
 
     @property
     def active(self) -> bool:
         return self.config is not None
+
+    def async_add_listener(self, update_callback: Any) -> Any:
+        """Entities that show the heaters register here to be written as soon as they change."""
+        self._listeners.append(update_callback)
+
+        @callback
+        def _remove() -> None:
+            self._listeners.remove(update_callback)
+
+        return _remove
+
+    def _notify(self) -> None:
+        for update_callback in list(self._listeners):
+            update_callback()
 
     async def async_setup(self) -> None:
         """Start listening. Does nothing when the site has no heaters configured."""
@@ -330,15 +345,12 @@ class HeaterController:
                 changed.append(f"{heater.entity} {'on' if should else 'off'}")
                 is_on = should
             devices.append(_HeaterView(entity=heater.entity, power=heater.power, on=is_on, want=should))
-        self.devices = devices
+        if devices != self.devices:
+            self.devices = devices
+            self._notify()
         self.status = "; ".join(changed) if changed else "idle"
         if changed:
             _LOGGER.debug("Water heaters: %s", self.status)
-            # Republish so the action sensor's `heaters` attribute shows what just happened,
-            # instead of waiting up to 15 minutes for the next plan refresh. Never before the
-            # coordinator's first refresh, to keep it out of the entry setup.
-            if self.coordinator.data is not None:
-                self.coordinator.async_set_updated_data(self.coordinator.view())
 
     async def _set(self, heater: Heater, on: bool) -> None:
         if heater.is_climate:

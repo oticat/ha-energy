@@ -281,6 +281,9 @@
       },
       "planned_cost": {
         "name": "Cost de xarxa previst"
+      },
+      "heaters": {
+        "name": "Escalfadors d'aigua"
       }
     },
     "binary_sensor": {

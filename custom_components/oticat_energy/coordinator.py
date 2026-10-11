@@ -281,7 +281,6 @@ class EnergyCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                 "preheat": False,
                 "segments": fallback_segments(min_soc, count),
                 "plan": plan,
-                "heaters": self.heater.view(),
             }
         return {
             "status": "stale" if self.error else "ok",
@@ -293,5 +292,4 @@ class EnergyCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             "preheat": bool(current.get("preheat", False)),
             "segments": plan["segments"],
             "plan": plan,
-            "heaters": self.heater.view(),
         }
