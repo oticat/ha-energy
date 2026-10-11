@@ -94,6 +94,19 @@ Entities are found by name: `<prefix>_program_<n>_time`, `_soc`, `_power`, `_cha
 `<prefix>_time_of_use`. Single-phase (`deye_hybrid`) and three-phase (`deye_p3`) ha-solarman
 profiles use the same names.
 
+## Water heaters
+
+The same inverter subentry can drive water heaters (or any other dump load) from the plan. Open
+**Water heaters** in its settings and set at least the **Grid power sensor** (W, signed or with a
+direction sensor) and one device. Each device is a `switch`, `climate` or `input_boolean`, with
+its rated power; order is priority, so heater 1 runs before heater 2.
+
+A heater runs on solar surplus, and in the hours the service marks as cheap it also runs from the
+grid, up to **Maximum grid import** (set it under the contracted power). It stops when the house
+starts importing too much, when the sun leaves the window, or when the cheap hour ends. This
+replaces the `solar_surplus_heater` automation blueprint for these devices. Its state shows on
+**Water heaters**, a sensor with the count and each device's state.
+
 ## What is sent to the service
 
 Each request sends the chosen zone's coordinates and name, your time zone, the current battery SOC and the
