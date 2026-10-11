@@ -3,6 +3,9 @@
 The integration is added once and holds the service URL. Each inverter is a subentry with
 its own site token from dom.oti.cat, where the battery, solar and grid settings are made.
 Here each inverter only gets its token and its local entities.
+
+The same subentry can also drive the site's water heaters: solar surplus first, and the
+cheap-grid hours the service marks, replacing the solar_surplus_heater blueprint.
 """
 
 from __future__ import annotations
@@ -19,11 +22,21 @@ from homeassistant.config_entries import (
     SubentryFlowResult,
 )
 from homeassistant.core import HomeAssistant, callback
+from homeassistant.data_entry_flow import section
 from homeassistant.helpers import selector
 
 from .const import (
     CONF_GRID_ENTITY,
     CONF_GRID_EXPORT_ENTITY,
+    CONF_HEATER_CONSUMING_STATE,
+    CONF_HEATER_FLOW_ENTITY,
+    CONF_HEATER_GRID_ENTITY,
+    CONF_HEATER_MARGIN,
+    CONF_HEATER_MAX_AZIMUTH,
+    CONF_HEATER_MAX_IMPORT_W,
+    CONF_HEATER_MIN_AZIMUTH,
+    CONF_HEATER_MIN_ELEVATION,
+    CONF_HEATER_SURPLUS_W,
     CONF_INVERTER,
     CONF_INVERTER_PREFIX,
     CONF_LOAD_ENTITY,
@@ -34,14 +47,97 @@ from .const import (
     CONF_TOKEN,
     CONF_URL,
     CONF_ZONE,
+    DEFAULT_HEATER_CONSUMING_STATE,
+    DEFAULT_HEATER_HVAC_MODE,
+    DEFAULT_HEATER_MARGIN,
+    DEFAULT_HEATER_MAX_AZIMUTH,
+    DEFAULT_HEATER_MAX_IMPORT_W,
+    DEFAULT_HEATER_MIN_AZIMUTH,
+    DEFAULT_HEATER_MIN_ELEVATION,
+    DEFAULT_HEATER_SURPLUS_W,
     DEFAULT_URL,
     DEFAULT_ZONE,
     DOMAIN,
     INVERTER_DEYE,
     INVERTER_NONE,
+    MAX_HEATERS,
     SUBENTRY_INVERTER,
+    heater_key,
 )
 from .coordinator import PlanRequestError, entities, location, read_soc, request_plan
+
+SECTION_WATER_HEATERS = "water_heaters"
+HVAC_MODES = ["cool", "heat", "fan_only", "dry", "auto"]
+
+
+def _watts(minimum: float, maximum: float, step: float) -> selector.NumberSelector:
+    return selector.NumberSelector(
+        selector.NumberSelectorConfig(
+            min=minimum, max=maximum, step=step, unit_of_measurement="W", mode=selector.NumberSelectorMode.BOX
+        )
+    )
+
+
+def _degrees(minimum: float, maximum: float) -> selector.NumberSelector:
+    return selector.NumberSelector(
+        selector.NumberSelectorConfig(
+            min=minimum, max=maximum, step=1, unit_of_measurement="°", mode=selector.NumberSelectorMode.BOX
+        )
+    )
+
+
+def _heater_sections(d: dict[str, Any]) -> dict[Any, Any]:
+    """The collapsible water-heater sections: shared settings plus one section per heater slot.
+
+    Every field is optional. Leave the heater slots empty to keep the integration inverter-only.
+    Priority is the slot order: heater 1 runs before heater 2, and so on.
+    """
+    shared = {
+        vol.Optional(
+            CONF_HEATER_GRID_ENTITY, description={"suggested_value": d.get(CONF_HEATER_GRID_ENTITY)}
+        ): selector.EntitySelector(selector.EntitySelectorConfig(domain="sensor")),
+        vol.Optional(
+            CONF_HEATER_FLOW_ENTITY, description={"suggested_value": d.get(CONF_HEATER_FLOW_ENTITY)}
+        ): selector.EntitySelector(selector.EntitySelectorConfig(domain="sensor")),
+        vol.Optional(
+            CONF_HEATER_CONSUMING_STATE, default=d.get(CONF_HEATER_CONSUMING_STATE, DEFAULT_HEATER_CONSUMING_STATE)
+        ): str,
+        vol.Optional(
+            CONF_HEATER_SURPLUS_W, default=d.get(CONF_HEATER_SURPLUS_W, DEFAULT_HEATER_SURPLUS_W)
+        ): _watts(0, 1000, 50),
+        vol.Optional(
+            CONF_HEATER_MAX_IMPORT_W, default=d.get(CONF_HEATER_MAX_IMPORT_W, DEFAULT_HEATER_MAX_IMPORT_W)
+        ): _watts(500, 15000, 100),
+        vol.Optional(CONF_HEATER_MARGIN, default=d.get(CONF_HEATER_MARGIN, DEFAULT_HEATER_MARGIN)): _watts(0, 500, 10),
+        vol.Optional(
+            CONF_HEATER_MIN_ELEVATION, default=d.get(CONF_HEATER_MIN_ELEVATION, DEFAULT_HEATER_MIN_ELEVATION)
+        ): _degrees(0, 45),
+        vol.Optional(
+            CONF_HEATER_MIN_AZIMUTH, default=d.get(CONF_HEATER_MIN_AZIMUTH, DEFAULT_HEATER_MIN_AZIMUTH)
+        ): _degrees(0, 179),
+        vol.Optional(
+            CONF_HEATER_MAX_AZIMUTH, default=d.get(CONF_HEATER_MAX_AZIMUTH, DEFAULT_HEATER_MAX_AZIMUTH)
+        ): _degrees(181, 360),
+    }
+    out: dict[Any, Any] = {vol.Optional(SECTION_WATER_HEATERS): section(vol.Schema(shared), {"collapsed": True})}
+    for i in range(1, MAX_HEATERS + 1):
+        out[vol.Optional(f"heater_{i}")] = section(
+            vol.Schema({
+                vol.Optional(
+                    heater_key(i, "entity"), description={"suggested_value": d.get(heater_key(i, "entity"))}
+                ): selector.EntitySelector(
+                    selector.EntitySelectorConfig(domain=["switch", "climate", "input_boolean"])
+                ),
+                vol.Optional(
+                    heater_key(i, "power"), description={"suggested_value": d.get(heater_key(i, "power"))}
+                ): _watts(0, 15000, 50),
+                vol.Optional(
+                    heater_key(i, "hvac_mode"), default=d.get(heater_key(i, "hvac_mode"), DEFAULT_HEATER_HVAC_MODE)
+                ): selector.SelectSelector(selector.SelectSelectorConfig(options=HVAC_MODES)),
+            }),
+            {"collapsed": True},
+        )
+    return out
 
 
 def _inverter_schema(d: dict[str, Any]) -> vol.Schema:
@@ -72,7 +168,32 @@ def _inverter_schema(d: dict[str, Any]) -> vol.Schema:
         vol.Required(CONF_PROGRAM_POWER, default=d.get(CONF_PROGRAM_POWER, 5000)): selector.NumberSelector(
             selector.NumberSelectorConfig(min=0, max=12000, step=100, unit_of_measurement="W", mode=selector.NumberSelectorMode.BOX)
         ),
+        **_heater_sections(d),
     })
+
+
+def _flatten(data: dict[str, Any]) -> dict[str, Any]:
+    """Lift the fields out of their collapsible sections so the subentry data is one flat dict."""
+    flat: dict[str, Any] = {}
+    for key, value in data.items():
+        if isinstance(value, dict):
+            flat.update(value)
+        else:
+            flat[key] = value
+    return flat
+
+
+def _heater_errors(d: dict[str, Any]) -> str | None:
+    """Consistency of the water-heater settings, or None."""
+    active = [d.get(heater_key(i, "entity")) for i in range(1, MAX_HEATERS + 1)]
+    if not any(active):
+        return None
+    if not d.get(CONF_HEATER_GRID_ENTITY):
+        return "heater_grid_required"
+    for i in range(1, MAX_HEATERS + 1):
+        if d.get(heater_key(i, "entity")) and not d.get(heater_key(i, "power")):
+            return "heater_power_required"
+    return None
 
 
 async def _validate(hass: HomeAssistant, url: str, conf: dict[str, Any]) -> tuple[str | None, dict[str, Any]]:
@@ -124,10 +245,13 @@ class InverterSubentryFlow(ConfigSubentryFlow):
     async def async_step_user(self, user_input: dict[str, Any] | None = None) -> SubentryFlowResult:
         errors: dict[str, str] = {}
         entry = self._get_entry()
+        flat = _flatten(user_input) if user_input else {}
         if user_input is not None:
-            error, site = await _validate(self.hass, entry.data.get(CONF_URL, DEFAULT_URL), user_input)
+            error = _heater_errors(flat)
             if error is None:
-                data = {**user_input, CONF_SITE_ID: site.get("id")}
+                error, site = await _validate(self.hass, entry.data.get(CONF_URL, DEFAULT_URL), flat)
+            if error is None:
+                data = {**flat, CONF_SITE_ID: site.get("id")}
                 title = site.get("name") or "Inverter"
                 # A new token for a site already set up here replaces that inverter's
                 # settings instead of adding a second copy of the same site.
@@ -137,21 +261,23 @@ class InverterSubentryFlow(ConfigSubentryFlow):
                         return self.async_abort(reason="site_updated")
                 return self.async_create_entry(title=title, data=data, unique_id=data[CONF_SITE_ID])
             errors["base"] = error
-        return self.async_show_form(step_id="user", data_schema=_inverter_schema(user_input or {}), errors=errors)
+        return self.async_show_form(step_id="user", data_schema=_inverter_schema(flat), errors=errors)
 
     async def async_step_reconfigure(self, user_input: dict[str, Any] | None = None) -> SubentryFlowResult:
         errors: dict[str, str] = {}
         entry = self._get_entry()
         subentry = self._get_reconfigure_subentry()
+        flat = _flatten(user_input) if user_input else dict(subentry.data)
         if user_input is not None:
-            error, site = await _validate(self.hass, entry.data.get(CONF_URL, DEFAULT_URL), user_input)
+            error = _heater_errors(flat)
+            site: dict[str, Any] = {}
+            if error is None:
+                error, site = await _validate(self.hass, entry.data.get(CONF_URL, DEFAULT_URL), flat)
             if error is None and site.get("id") != subentry.data.get(CONF_SITE_ID):
                 error = "different_site"
             if error is None:
                 return self.async_update_and_abort(
-                    entry, subentry, data={**user_input, CONF_SITE_ID: site["id"]}, title=site.get("name") or subentry.title
+                    entry, subentry, data={**flat, CONF_SITE_ID: site["id"]}, title=site.get("name") or subentry.title
                 )
             errors["base"] = error
-        return self.async_show_form(
-            step_id="reconfigure", data_schema=_inverter_schema(user_input or dict(subentry.data)), errors=errors
-        )
+        return self.async_show_form(step_id="reconfigure", data_schema=_inverter_schema(flat), errors=errors)

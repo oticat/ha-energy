@@ -52,6 +52,85 @@
             "zone": "Zona per a la previsió solar i la temperatura. Casa és la ubicació del mateix Home Assistant. Per fer servir un altre lloc, afegeix una zona a Configuració > Àrees, etiquetes i zones > Zones.",
             "inverter_prefix": "Per a number.deye_program_1_soc és deye.",
             "program_power": "Límit de potència de la bateria que s'escriu a cada programa horari."
+          },
+          "sections": {
+            "water_heaters": {
+              "name": "Escalfadors d'aigua",
+              "data": {
+                "heater_grid_entity": "Sensor de potència de xarxa (W)",
+                "heater_flow_entity": "Sensor de direcció del flux de xarxa",
+                "heater_consuming_state": "Valor de l'estat d'importació",
+                "heater_surplus_w": "Llindar d'excedent (W)",
+                "heater_max_import_w": "Importació màxima de xarxa (W)",
+                "heater_margin": "Marge anti-oscil·lació (W)",
+                "heater_min_elevation": "Elevació mínima del sol (°)",
+                "heater_min_azimuth": "Límit est de l'azimut (°)",
+                "heater_max_azimuth": "Límit oest de l'azimut (°)"
+              },
+              "data_description": {
+                "heater_grid_entity": "Potència de xarxa en W, amb signe o amb el sensor de direcció de sota. Els escalfadors aprofiten l'excedent que mostra i s'aturen quan puja massa.",
+                "heater_flow_entity": "Entitat l'estat de la qual distingeix importació d'exportació, per a comptadors que no donen un valor amb signe.",
+                "heater_consuming_state": "Estat del sensor de flux que vol dir importar.",
+                "heater_surplus_w": "La xarxa es manté al voltant d'aquest valor mentre s'escalfa amb excedent. Normalment 100 W.",
+                "heater_max_import_w": "Sostre de la importació total de xarxa mentre s'escalfa amb xarxa barata, perquè no salti el magnetotèrmic. Poseu-lo una mica per sota de la potència contractada.",
+                "heater_margin": "Banda d'histèresi al voltant dels llindars, en W.",
+                "heater_min_elevation": "No escalfar amb excedent quan el sol és per sota d'aquest angle.",
+                "heater_min_azimuth": "No escalfar amb excedent mentre el sol és per sota d'això (ombra del matí). 90 = est.",
+                "heater_max_azimuth": "No escalfar amb excedent mentre el sol és per sobre d'això (ombra de la tarda). 270 = oest."
+              }
+            },
+            "heater_1": {
+              "name": "Escalfador 1",
+              "data": {
+                "heater_1_entity": "Dispositiu",
+                "heater_1_power": "Potència nominal (W)",
+                "heater_1_hvac_mode": "Mode de climatització"
+              },
+              "data_description": {
+                "heater_1_entity": "Entitat switch o climate. La prioritat és l'ordre de les caselles: l'escalfador 1 funciona abans que el 2. Deixeu una casella buida per fer servir menys escalfadors.",
+                "heater_1_power": "Potència que consumeix mentre funciona, per a la comprovació prèvia.",
+                "heater_1_hvac_mode": "Mode que s'activa en encendre una entitat climate (s'ignora per als switches)."
+              }
+            },
+            "heater_2": {
+              "name": "Escalfador 2",
+              "data": {
+                "heater_2_entity": "Dispositiu",
+                "heater_2_power": "Potència nominal (W)",
+                "heater_2_hvac_mode": "Mode de climatització"
+              },
+              "data_description": {
+                "heater_2_entity": "Entitat switch o climate. La prioritat és l'ordre de les caselles: l'escalfador 1 funciona abans que el 2. Deixeu una casella buida per fer servir menys escalfadors.",
+                "heater_2_power": "Potència que consumeix mentre funciona, per a la comprovació prèvia.",
+                "heater_2_hvac_mode": "Mode que s'activa en encendre una entitat climate (s'ignora per als switches)."
+              }
+            },
+            "heater_3": {
+              "name": "Escalfador 3",
+              "data": {
+                "heater_3_entity": "Dispositiu",
+                "heater_3_power": "Potència nominal (W)",
+                "heater_3_hvac_mode": "Mode de climatització"
+              },
+              "data_description": {
+                "heater_3_entity": "Entitat switch o climate. La prioritat és l'ordre de les caselles: l'escalfador 1 funciona abans que el 2. Deixeu una casella buida per fer servir menys escalfadors.",
+                "heater_3_power": "Potència que consumeix mentre funciona, per a la comprovació prèvia.",
+                "heater_3_hvac_mode": "Mode que s'activa en encendre una entitat climate (s'ignora per als switches)."
+              }
+            },
+            "heater_4": {
+              "name": "Escalfador 4",
+              "data": {
+                "heater_4_entity": "Dispositiu",
+                "heater_4_power": "Potència nominal (W)",
+                "heater_4_hvac_mode": "Mode de climatització"
+              },
+              "data_description": {
+                "heater_4_entity": "Entitat switch o climate. La prioritat és l'ordre de les caselles: l'escalfador 1 funciona abans que el 2. Deixeu una casella buida per fer servir menys escalfadors.",
+                "heater_4_power": "Potència que consumeix mentre funciona, per a la comprovació prèvia.",
+                "heater_4_hvac_mode": "Mode que s'activa en encendre una entitat climate (s'ignora per als switches)."
+              }
+            }
           }
         },
         "reconfigure": {
@@ -79,6 +158,85 @@
             "zone": "Zona per a la previsió solar i la temperatura. Casa és la ubicació del mateix Home Assistant. Per fer servir un altre lloc, afegeix una zona a Configuració > Àrees, etiquetes i zones > Zones.",
             "inverter_prefix": "Per a number.deye_program_1_soc és deye.",
             "program_power": "Límit de potència de la bateria que s'escriu a cada programa horari."
+          },
+          "sections": {
+            "water_heaters": {
+              "name": "Escalfadors d'aigua",
+              "data": {
+                "heater_grid_entity": "Sensor de potència de xarxa (W)",
+                "heater_flow_entity": "Sensor de direcció del flux de xarxa",
+                "heater_consuming_state": "Valor de l'estat d'importació",
+                "heater_surplus_w": "Llindar d'excedent (W)",
+                "heater_max_import_w": "Importació màxima de xarxa (W)",
+                "heater_margin": "Marge anti-oscil·lació (W)",
+                "heater_min_elevation": "Elevació mínima del sol (°)",
+                "heater_min_azimuth": "Límit est de l'azimut (°)",
+                "heater_max_azimuth": "Límit oest de l'azimut (°)"
+              },
+              "data_description": {
+                "heater_grid_entity": "Potència de xarxa en W, amb signe o amb el sensor de direcció de sota. Els escalfadors aprofiten l'excedent que mostra i s'aturen quan puja massa.",
+                "heater_flow_entity": "Entitat l'estat de la qual distingeix importació d'exportació, per a comptadors que no donen un valor amb signe.",
+                "heater_consuming_state": "Estat del sensor de flux que vol dir importar.",
+                "heater_surplus_w": "La xarxa es manté al voltant d'aquest valor mentre s'escalfa amb excedent. Normalment 100 W.",
+                "heater_max_import_w": "Sostre de la importació total de xarxa mentre s'escalfa amb xarxa barata, perquè no salti el magnetotèrmic. Poseu-lo una mica per sota de la potència contractada.",
+                "heater_margin": "Banda d'histèresi al voltant dels llindars, en W.",
+                "heater_min_elevation": "No escalfar amb excedent quan el sol és per sota d'aquest angle.",
+                "heater_min_azimuth": "No escalfar amb excedent mentre el sol és per sota d'això (ombra del matí). 90 = est.",
+                "heater_max_azimuth": "No escalfar amb excedent mentre el sol és per sobre d'això (ombra de la tarda). 270 = oest."
+              }
+            },
+            "heater_1": {
+              "name": "Escalfador 1",
+              "data": {
+                "heater_1_entity": "Dispositiu",
+                "heater_1_power": "Potència nominal (W)",
+                "heater_1_hvac_mode": "Mode de climatització"
+              },
+              "data_description": {
+                "heater_1_entity": "Entitat switch o climate. La prioritat és l'ordre de les caselles: l'escalfador 1 funciona abans que el 2. Deixeu una casella buida per fer servir menys escalfadors.",
+                "heater_1_power": "Potència que consumeix mentre funciona, per a la comprovació prèvia.",
+                "heater_1_hvac_mode": "Mode que s'activa en encendre una entitat climate (s'ignora per als switches)."
+              }
+            },
+            "heater_2": {
+              "name": "Escalfador 2",
+              "data": {
+                "heater_2_entity": "Dispositiu",
+                "heater_2_power": "Potència nominal (W)",
+                "heater_2_hvac_mode": "Mode de climatització"
+              },
+              "data_description": {
+                "heater_2_entity": "Entitat switch o climate. La prioritat és l'ordre de les caselles: l'escalfador 1 funciona abans que el 2. Deixeu una casella buida per fer servir menys escalfadors.",
+                "heater_2_power": "Potència que consumeix mentre funciona, per a la comprovació prèvia.",
+                "heater_2_hvac_mode": "Mode que s'activa en encendre una entitat climate (s'ignora per als switches)."
+              }
+            },
+            "heater_3": {
+              "name": "Escalfador 3",
+              "data": {
+                "heater_3_entity": "Dispositiu",
+                "heater_3_power": "Potència nominal (W)",
+                "heater_3_hvac_mode": "Mode de climatització"
+              },
+              "data_description": {
+                "heater_3_entity": "Entitat switch o climate. La prioritat és l'ordre de les caselles: l'escalfador 1 funciona abans que el 2. Deixeu una casella buida per fer servir menys escalfadors.",
+                "heater_3_power": "Potència que consumeix mentre funciona, per a la comprovació prèvia.",
+                "heater_3_hvac_mode": "Mode que s'activa en encendre una entitat climate (s'ignora per als switches)."
+              }
+            },
+            "heater_4": {
+              "name": "Escalfador 4",
+              "data": {
+                "heater_4_entity": "Dispositiu",
+                "heater_4_power": "Potència nominal (W)",
+                "heater_4_hvac_mode": "Mode de climatització"
+              },
+              "data_description": {
+                "heater_4_entity": "Entitat switch o climate. La prioritat és l'ordre de les caselles: l'escalfador 1 funciona abans que el 2. Deixeu una casella buida per fer servir menys escalfadors.",
+                "heater_4_power": "Potència que consumeix mentre funciona, per a la comprovació prèvia.",
+                "heater_4_hvac_mode": "Mode que s'activa en encendre una entitat climate (s'ignora per als switches)."
+              }
+            }
           }
         }
       },
@@ -87,7 +245,9 @@
         "cannot_connect": "No s'ha pogut obtenir un pla del servei.",
         "soc_unavailable": "L'entitat de SOC no té valor.",
         "inverter_not_found": "No s'han trobat programes de l'inversor amb aquest prefix.",
-        "different_site": "Aquest token és d'un altre lloc. Afegeix-lo com a inversor nou."
+        "different_site": "Aquest token és d'un altre lloc. Afegeix-lo com a inversor nou.",
+        "heater_grid_required": "Definiu el sensor de potència de xarxa per fer funcionar els escalfadors.",
+        "heater_power_required": "Cada escalfador necessita la seva potència nominal."
       },
       "abort": {
         "site_updated": "Aquest lloc ja estava configurat aquí. El seu inversor ara fa servir la configuració nova.",

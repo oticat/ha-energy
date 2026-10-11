@@ -36,7 +36,7 @@ class ActionSensor(EnergyEntity, SensorEntity):
     _attr_device_class = SensorDeviceClass.ENUM
     _attr_options = ACTIONS
     # The hour-by-hour plan changes every 15 minutes and would bloat the recorder.
-    _unrecorded_attributes = frozenset({"hours", "segments", "sources"})
+    _unrecorded_attributes = frozenset({"hours", "segments", "sources", "heaters"})
 
     def __init__(self, coordinator) -> None:
         super().__init__(coordinator, "action")
@@ -60,6 +60,7 @@ class ActionSensor(EnergyEntity, SensorEntity):
             "hours": plan.get("hours", []),
             "sources": plan.get("sources"),
             "inverter": self.coordinator.writer.status if self.coordinator.writer else None,
+            "heaters": d.get("heaters"),
         }
 
 

@@ -43,6 +43,7 @@ from .const import (
     PLAN_PATH,
 )
 from .inverter import DeyeWriter
+from .heater import HeaterController
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -152,6 +153,9 @@ class EnergyCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         self.writer: DeyeWriter | None = None
         if conf.get(CONF_INVERTER) == INVERTER_DEYE:
             self.writer = DeyeWriter(hass, conf.get(CONF_INVERTER_PREFIX, "deye"), int(conf.get(CONF_PROGRAM_POWER, 5000)))
+        # Water heaters run on the same plan. Real-time, so the controller listens to the grid
+        # power itself instead of waiting for the 15-minute plan refresh.
+        self.heater = HeaterController(hass, self)
 
     @property
     def conf(self) -> dict[str, Any]:
@@ -172,6 +176,9 @@ class EnergyCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         )
         if self.writer:
             self.config_entry.async_on_unload(self.async_add_listener(self._write_inverter))
+        if self.heater.active:
+            await self.heater.async_setup()
+            self.config_entry.async_on_unload(self.heater.async_stop)
 
     @callback
     def _write_inverter(self) -> None:
@@ -274,6 +281,7 @@ class EnergyCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                 "preheat": False,
                 "segments": fallback_segments(min_soc, count),
                 "plan": plan,
+                "heaters": self.heater.view(),
             }
         return {
             "status": "stale" if self.error else "ok",
@@ -285,4 +293,5 @@ class EnergyCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             "preheat": bool(current.get("preheat", False)),
             "segments": plan["segments"],
             "plan": plan,
+            "heaters": self.heater.view(),
         }

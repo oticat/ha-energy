@@ -52,6 +52,85 @@
             "zone": "Zone used for the solar forecast and temperature. Home is Home Assistant's own location. To use another place, add a zone in Settings > Areas, labels & zones > Zones.",
             "inverter_prefix": "For number.deye_program_1_soc it is deye.",
             "program_power": "Battery power limit written to every time-of-use program."
+          },
+          "sections": {
+            "water_heaters": {
+              "name": "Water heaters",
+              "data": {
+                "heater_grid_entity": "Grid power sensor (W)",
+                "heater_flow_entity": "Grid flow direction sensor",
+                "heater_consuming_state": "Importing state value",
+                "heater_surplus_w": "Surplus threshold (W)",
+                "heater_max_import_w": "Maximum grid import (W)",
+                "heater_margin": "Anti-flapping margin (W)",
+                "heater_min_elevation": "Minimum sun elevation (°)",
+                "heater_min_azimuth": "East azimuth boundary (°)",
+                "heater_max_azimuth": "West azimuth boundary (°)"
+              },
+              "data_description": {
+                "heater_grid_entity": "Grid power in W, signed or with the direction sensor below. The heaters run on the surplus it shows, and stop when it climbs too high.",
+                "heater_flow_entity": "An entity whose state tells import from export, for meters that do not give a signed value.",
+                "heater_consuming_state": "State of the flow sensor that means importing.",
+                "heater_surplus_w": "The grid is kept around this value while heating on surplus. Usually 100 W.",
+                "heater_max_import_w": "Ceiling on total grid import while heating on cheap grid, so it never trips the breaker. Set it a little under the contracted power.",
+                "heater_margin": "Hysteresis band around the thresholds, in W.",
+                "heater_min_elevation": "Do not heat on surplus when the sun is below this angle.",
+                "heater_min_azimuth": "Do not heat on surplus while the sun is below this (morning shade). 90 = due east.",
+                "heater_max_azimuth": "Do not heat on surplus while the sun is above this (evening shade). 270 = due west."
+              }
+            },
+            "heater_1": {
+              "name": "Water heater 1",
+              "data": {
+                "heater_1_entity": "Device",
+                "heater_1_power": "Rated power (W)",
+                "heater_1_hvac_mode": "HVAC mode"
+              },
+              "data_description": {
+                "heater_1_entity": "Switch or climate entity. Priority is the slot order: heater 1 runs before heater 2. Leave a slot empty to use fewer heaters.",
+                "heater_1_power": "Power drawn while running, for the pre-flight check.",
+                "heater_1_hvac_mode": "Mode set when turning a climate entity on (ignored for switches)."
+              }
+            },
+            "heater_2": {
+              "name": "Water heater 2",
+              "data": {
+                "heater_2_entity": "Device",
+                "heater_2_power": "Rated power (W)",
+                "heater_2_hvac_mode": "HVAC mode"
+              },
+              "data_description": {
+                "heater_2_entity": "Switch or climate entity. Priority is the slot order: heater 1 runs before heater 2. Leave a slot empty to use fewer heaters.",
+                "heater_2_power": "Power drawn while running, for the pre-flight check.",
+                "heater_2_hvac_mode": "Mode set when turning a climate entity on (ignored for switches)."
+              }
+            },
+            "heater_3": {
+              "name": "Water heater 3",
+              "data": {
+                "heater_3_entity": "Device",
+                "heater_3_power": "Rated power (W)",
+                "heater_3_hvac_mode": "HVAC mode"
+              },
+              "data_description": {
+                "heater_3_entity": "Switch or climate entity. Priority is the slot order: heater 1 runs before heater 2. Leave a slot empty to use fewer heaters.",
+                "heater_3_power": "Power drawn while running, for the pre-flight check.",
+                "heater_3_hvac_mode": "Mode set when turning a climate entity on (ignored for switches)."
+              }
+            },
+            "heater_4": {
+              "name": "Water heater 4",
+              "data": {
+                "heater_4_entity": "Device",
+                "heater_4_power": "Rated power (W)",
+                "heater_4_hvac_mode": "HVAC mode"
+              },
+              "data_description": {
+                "heater_4_entity": "Switch or climate entity. Priority is the slot order: heater 1 runs before heater 2. Leave a slot empty to use fewer heaters.",
+                "heater_4_power": "Power drawn while running, for the pre-flight check.",
+                "heater_4_hvac_mode": "Mode set when turning a climate entity on (ignored for switches)."
+              }
+            }
           }
         },
         "reconfigure": {
@@ -79,6 +158,85 @@
             "zone": "Zone used for the solar forecast and temperature. Home is Home Assistant's own location. To use another place, add a zone in Settings > Areas, labels & zones > Zones.",
             "inverter_prefix": "For number.deye_program_1_soc it is deye.",
             "program_power": "Battery power limit written to every time-of-use program."
+          },
+          "sections": {
+            "water_heaters": {
+              "name": "Water heaters",
+              "data": {
+                "heater_grid_entity": "Grid power sensor (W)",
+                "heater_flow_entity": "Grid flow direction sensor",
+                "heater_consuming_state": "Importing state value",
+                "heater_surplus_w": "Surplus threshold (W)",
+                "heater_max_import_w": "Maximum grid import (W)",
+                "heater_margin": "Anti-flapping margin (W)",
+                "heater_min_elevation": "Minimum sun elevation (°)",
+                "heater_min_azimuth": "East azimuth boundary (°)",
+                "heater_max_azimuth": "West azimuth boundary (°)"
+              },
+              "data_description": {
+                "heater_grid_entity": "Grid power in W, signed or with the direction sensor below. The heaters run on the surplus it shows, and stop when it climbs too high.",
+                "heater_flow_entity": "An entity whose state tells import from export, for meters that do not give a signed value.",
+                "heater_consuming_state": "State of the flow sensor that means importing.",
+                "heater_surplus_w": "The grid is kept around this value while heating on surplus. Usually 100 W.",
+                "heater_max_import_w": "Ceiling on total grid import while heating on cheap grid, so it never trips the breaker. Set it a little under the contracted power.",
+                "heater_margin": "Hysteresis band around the thresholds, in W.",
+                "heater_min_elevation": "Do not heat on surplus when the sun is below this angle.",
+                "heater_min_azimuth": "Do not heat on surplus while the sun is below this (morning shade). 90 = due east.",
+                "heater_max_azimuth": "Do not heat on surplus while the sun is above this (evening shade). 270 = due west."
+              }
+            },
+            "heater_1": {
+              "name": "Water heater 1",
+              "data": {
+                "heater_1_entity": "Device",
+                "heater_1_power": "Rated power (W)",
+                "heater_1_hvac_mode": "HVAC mode"
+              },
+              "data_description": {
+                "heater_1_entity": "Switch or climate entity. Priority is the slot order: heater 1 runs before heater 2. Leave a slot empty to use fewer heaters.",
+                "heater_1_power": "Power drawn while running, for the pre-flight check.",
+                "heater_1_hvac_mode": "Mode set when turning a climate entity on (ignored for switches)."
+              }
+            },
+            "heater_2": {
+              "name": "Water heater 2",
+              "data": {
+                "heater_2_entity": "Device",
+                "heater_2_power": "Rated power (W)",
+                "heater_2_hvac_mode": "HVAC mode"
+              },
+              "data_description": {
+                "heater_2_entity": "Switch or climate entity. Priority is the slot order: heater 1 runs before heater 2. Leave a slot empty to use fewer heaters.",
+                "heater_2_power": "Power drawn while running, for the pre-flight check.",
+                "heater_2_hvac_mode": "Mode set when turning a climate entity on (ignored for switches)."
+              }
+            },
+            "heater_3": {
+              "name": "Water heater 3",
+              "data": {
+                "heater_3_entity": "Device",
+                "heater_3_power": "Rated power (W)",
+                "heater_3_hvac_mode": "HVAC mode"
+              },
+              "data_description": {
+                "heater_3_entity": "Switch or climate entity. Priority is the slot order: heater 1 runs before heater 2. Leave a slot empty to use fewer heaters.",
+                "heater_3_power": "Power drawn while running, for the pre-flight check.",
+                "heater_3_hvac_mode": "Mode set when turning a climate entity on (ignored for switches)."
+              }
+            },
+            "heater_4": {
+              "name": "Water heater 4",
+              "data": {
+                "heater_4_entity": "Device",
+                "heater_4_power": "Rated power (W)",
+                "heater_4_hvac_mode": "HVAC mode"
+              },
+              "data_description": {
+                "heater_4_entity": "Switch or climate entity. Priority is the slot order: heater 1 runs before heater 2. Leave a slot empty to use fewer heaters.",
+                "heater_4_power": "Power drawn while running, for the pre-flight check.",
+                "heater_4_hvac_mode": "Mode set when turning a climate entity on (ignored for switches)."
+              }
+            }
           }
         }
       },
@@ -87,7 +245,9 @@
         "cannot_connect": "Could not get a plan from the service.",
         "soc_unavailable": "The SOC entity has no value.",
         "inverter_not_found": "No inverter programs found with that prefix.",
-        "different_site": "That token belongs to a different site. Add it as a new inverter instead."
+        "different_site": "That token belongs to a different site. Add it as a new inverter instead.",
+        "heater_grid_required": "Set the grid power sensor to run the water heaters.",
+        "heater_power_required": "Every water heater needs its rated power."
       },
       "abort": {
         "site_updated": "This site was already set up here. Its inverter now uses the new settings.",
