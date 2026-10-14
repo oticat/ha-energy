@@ -311,7 +311,13 @@ class EnergyCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             # The service asks until it has one; once it stops, the copy that just went out was
             # good enough and there is no reason to keep sending it.
             if isinstance(self.plan, dict) and self.plan.get("want_catalogue"):
-                self._send_catalogue = True
+                if not self._send_catalogue:
+                    self._send_catalogue = True
+                    # The catalogue rides on the next request. Asking is usually the settings page
+                    # waiting for the list, so go again now instead of in fifteen minutes.
+                    self.config_entry.async_create_background_task(
+                        self.hass, self.async_request_refresh(), f"oticat_energy_catalogue_{self.subentry.subentry_id}"
+                    )
             elif sent_catalogue:
                 self._send_catalogue = False
         except PlanRequestError as err:
