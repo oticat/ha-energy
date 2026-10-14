@@ -28,6 +28,7 @@ from homeassistant.util import dt as dt_util
 from .const import (
     CONF_GRID_ENTITY,
     CONF_GRID_EXPORT_ENTITY,
+    CONF_HEATER_GRID_ENTITY,
     CONF_INVERTER,
     CONF_INVERTER_PREFIX,
     CONF_LOAD_ENTITY,
@@ -47,7 +48,7 @@ from .const import (
 )
 from .catalogue import build_catalogue
 from .inverter import DeyeWriter
-from .heater import HeaterController
+from .heater import HeaterController, thresholds
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -372,6 +373,12 @@ class EnergyCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             },
             "client": {"integration": self._version, "ha": HA_VERSION},
         }
+        # Until the service has sent a configuration, report the numbers the subentry holds so it
+        # can adopt the ones the site has never expressed itself. Without this, a site that had
+        # tuned them here would silently drop to the service's defaults, which it did once.
+        if self.applied is None and conf.get(CONF_HEATER_GRID_ENTITY):
+            body["legacy"] = {"heaters": thresholds(conf)}
+
         sent_catalogue = self._send_catalogue
         if sent_catalogue:
             body["catalogue"] = build_catalogue(self.hass)

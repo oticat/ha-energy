@@ -161,22 +161,45 @@ def decide(config: HeaterConfig, s: Snapshot) -> list[bool]:
     return want
 
 
+# The controller's numbers, under the names the service uses: (service key, subentry key, default).
+THRESHOLDS: tuple[tuple[str, str, float], ...] = (
+    ("surplus_w", CONF_HEATER_SURPLUS_W, DEFAULT_HEATER_SURPLUS_W),
+    ("max_import_w", CONF_HEATER_MAX_IMPORT_W, DEFAULT_HEATER_MAX_IMPORT_W),
+    ("margin", CONF_HEATER_MARGIN, DEFAULT_HEATER_MARGIN),
+    ("min_elevation", CONF_HEATER_MIN_ELEVATION, DEFAULT_HEATER_MIN_ELEVATION),
+    ("min_azimuth", CONF_HEATER_MIN_AZIMUTH, DEFAULT_HEATER_MIN_AZIMUTH),
+    ("max_azimuth", CONF_HEATER_MAX_AZIMUTH, DEFAULT_HEATER_MAX_AZIMUTH),
+    ("dry_days", CONF_HEATER_DRY_DAYS, DEFAULT_HEATER_DRY_DAYS),
+    ("export_min_kwh", CONF_HEATER_EXPORT_MIN_KWH, DEFAULT_HEATER_EXPORT_MIN_KWH),
+    ("cheap_price", CONF_HEATER_CHEAP_PRICE, DEFAULT_HEATER_CHEAP_PRICE),
+)
+
+
+def thresholds(conf: dict[str, Any], applied: dict[str, Any] | None = None) -> dict[str, float]:
+    """The controller's numbers.
+
+    What the service has sent wins, because it is the source of truth now; whatever it has not
+    sent comes from the subentry, which is what lets a site keep running on its own when the
+    service cannot be reached.
+    """
+    from_service = applied or {}
+    out: dict[str, float] = {}
+    for key, conf_key, default in THRESHOLDS:
+        value = from_service.get(key)
+        out[key] = float(value) if isinstance(value, (int, float)) else float(conf.get(conf_key, default))
+    return out
+
+
 def config_from(conf: dict[str, Any], applied: dict[str, Any] | None = None) -> HeaterConfig | None:
     """Build the heater config from a subentry's data, or None when no heater is set up.
 
-    The devices and their sensors are local, so they come from the subentry. The thresholds are
-    the site's energy policy and live on dom; the plan carries them and `applied` is the last set
-    the service sent. Anything the service is not sending falls back to the subentry, so a site
-    whose service is unreachable keeps running exactly as it was.
+    The devices and their sensors are local, so they come from the subentry; the numbers come
+    from thresholds() above.
     """
     grid_entity = conf.get(CONF_HEATER_GRID_ENTITY)
     if not grid_entity:
         return None
-    from_service = applied or {}
-
-    def number(key: str, conf_key: str, default: float) -> float:
-        value = from_service.get(key)
-        return float(value) if isinstance(value, (int, float)) else float(conf.get(conf_key, default))
+    t = thresholds(conf, applied)
 
     heaters: list[Heater] = []
     for i in range(1, MAX_HEATERS + 1):
@@ -198,18 +221,18 @@ def config_from(conf: dict[str, Any], applied: dict[str, Any] | None = None) -> 
         grid_entity=grid_entity,
         flow_entity=conf.get(CONF_HEATER_FLOW_ENTITY) or None,
         consuming=conf.get(CONF_HEATER_CONSUMING_STATE) or DEFAULT_HEATER_CONSUMING_STATE,
-        surplus_w=number("surplus_w", CONF_HEATER_SURPLUS_W, DEFAULT_HEATER_SURPLUS_W),
-        max_import_w=number("max_import_w", CONF_HEATER_MAX_IMPORT_W, DEFAULT_HEATER_MAX_IMPORT_W),
-        margin=number("margin", CONF_HEATER_MARGIN, DEFAULT_HEATER_MARGIN),
-        min_elevation=number("min_elevation", CONF_HEATER_MIN_ELEVATION, DEFAULT_HEATER_MIN_ELEVATION),
-        min_azimuth=number("min_azimuth", CONF_HEATER_MIN_AZIMUTH, DEFAULT_HEATER_MIN_AZIMUTH),
-        max_azimuth=number("max_azimuth", CONF_HEATER_MAX_AZIMUTH, DEFAULT_HEATER_MAX_AZIMUTH),
+        surplus_w=t["surplus_w"],
+        max_import_w=t["max_import_w"],
+        margin=t["margin"],
+        min_elevation=t["min_elevation"],
+        min_azimuth=t["min_azimuth"],
+        max_azimuth=t["max_azimuth"],
         # The export register the day chart already uses; if the site has none, the signed grid
         # sensor is used instead.
         export_entity=conf.get(CONF_GRID_EXPORT_ENTITY) or None,
-        dry_days=int(number("dry_days", CONF_HEATER_DRY_DAYS, DEFAULT_HEATER_DRY_DAYS)),
-        export_min_kwh=number("export_min_kwh", CONF_HEATER_EXPORT_MIN_KWH, DEFAULT_HEATER_EXPORT_MIN_KWH),
-        cheap_price=number("cheap_price", CONF_HEATER_CHEAP_PRICE, DEFAULT_HEATER_CHEAP_PRICE),
+        dry_days=int(t["dry_days"]),
+        export_min_kwh=t["export_min_kwh"],
+        cheap_price=t["cheap_price"],
     )
 
 

@@ -174,9 +174,12 @@ def _heater_sections(d: dict[str, Any]) -> dict[Any, Any]:
 
 
 def _inverter_schema(d: dict[str, Any]) -> vol.Schema:
+    # Only the token is required: the site's entities are chosen on dom.oti.cat, from the list
+    # this side reports, and arrive with the plan. They can still be set here, which is what a
+    # site that predates that uses, and what the service falls back to when it sends nothing.
     return vol.Schema({
         vol.Required(CONF_TOKEN, default=d.get(CONF_TOKEN, "")): str,
-        vol.Required(CONF_SOC_ENTITY, description={"suggested_value": d.get(CONF_SOC_ENTITY)}): selector.EntitySelector(
+        vol.Optional(CONF_SOC_ENTITY, description={"suggested_value": d.get(CONF_SOC_ENTITY)}): selector.EntitySelector(
             selector.EntitySelectorConfig(domain=["sensor", "input_number", "number"])
         ),
         vol.Optional(CONF_LOAD_ENTITY, description={"suggested_value": d.get(CONF_LOAD_ENTITY)}): selector.EntitySelector(
@@ -191,14 +194,14 @@ def _inverter_schema(d: dict[str, Any]) -> vol.Schema:
         vol.Optional(CONF_SOLAR_ENTITY, description={"suggested_value": d.get(CONF_SOLAR_ENTITY)}): selector.EntitySelector(
             selector.EntitySelectorConfig(domain="sensor", device_class="energy")
         ),
-        vol.Required(CONF_ZONE, default=d.get(CONF_ZONE, DEFAULT_ZONE)): selector.EntitySelector(
+        vol.Optional(CONF_ZONE, default=d.get(CONF_ZONE, DEFAULT_ZONE)): selector.EntitySelector(
             selector.EntitySelectorConfig(domain="zone")
         ),
-        vol.Required(CONF_INVERTER, default=d.get(CONF_INVERTER, INVERTER_DEYE)): selector.SelectSelector(
+        vol.Optional(CONF_INVERTER, default=d.get(CONF_INVERTER, INVERTER_DEYE)): selector.SelectSelector(
             selector.SelectSelectorConfig(options=[INVERTER_DEYE, INVERTER_NONE], translation_key="inverter")
         ),
-        vol.Required(CONF_INVERTER_PREFIX, default=d.get(CONF_INVERTER_PREFIX, "deye")): str,
-        vol.Required(CONF_PROGRAM_POWER, default=d.get(CONF_PROGRAM_POWER, 5000)): selector.NumberSelector(
+        vol.Optional(CONF_INVERTER_PREFIX, default=d.get(CONF_INVERTER_PREFIX, "deye")): str,
+        vol.Optional(CONF_PROGRAM_POWER, default=d.get(CONF_PROGRAM_POWER, 5000)): selector.NumberSelector(
             selector.NumberSelectorConfig(min=0, max=12000, step=100, unit_of_measurement="W", mode=selector.NumberSelectorMode.BOX)
         ),
         **_heater_sections(d),
@@ -230,16 +233,25 @@ def _heater_errors(d: dict[str, Any]) -> str | None:
 
 
 async def _validate(hass: HomeAssistant, url: str, conf: dict[str, Any]) -> tuple[str | None, dict[str, Any]]:
-    """Ask the service for a real plan. Returns (error key, site info from the service)."""
-    soc = read_soc(hass, conf[CONF_SOC_ENTITY])
-    if soc is None:
+    """Ask the service for a real plan. Returns (error key, site info from the service).
+
+    A site that has no entities yet is fine: the request goes out without a SOC and the service
+    answers with the configuration and the entity catalogue, which is what the settings page
+    needs to be able to offer the right ones.
+    """
+    soc = read_soc(hass, conf[CONF_SOC_ENTITY]) if conf.get(CONF_SOC_ENTITY) else None
+    if conf.get(CONF_SOC_ENTITY) and soc is None:
         return "soc_unavailable", {}
-    if conf[CONF_INVERTER] == INVERTER_DEYE:
+    if conf.get(CONF_INVERTER) == INVERTER_DEYE and conf.get(CONF_INVERTER_PREFIX):
         prefix = conf[CONF_INVERTER_PREFIX]
         if not any(hass.states.get(f"{d}.{prefix}_program_1_soc") for d in ("number", "input_number")):
             return "inverter_not_found", {}
     try:
-        body = {"location": location(hass, conf.get(CONF_ZONE)), "state": {"soc": soc}, "entities": entities(conf)}
+        body = {
+            "location": location(hass, conf.get(CONF_ZONE)),
+            "state": {} if soc is None else {"soc": soc},
+            "entities": entities(conf),
+        }
         plan = await request_plan(hass, {CONF_URL: url, **conf}, body)
     except PlanRequestError as err:
         return ("invalid_auth" if err.unauthorized else "cannot_connect"), {}
