@@ -414,10 +414,12 @@ class EnergyCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             },
             "client": {"integration": self._version, "ha": HA_VERSION},
         }
-        # Until the service has sent a configuration, report the numbers the subentry holds so it
-        # can adopt the ones the site has never expressed itself. Without this, a site that had
-        # tuned them here would silently drop to the service's defaults, which it did once.
-        if self.applied is None and conf.get(CONF_HEATER_GRID_ENTITY):
+        # What the subentry holds for the high-consumption devices, so the service can adopt what
+        # the site has never expressed itself: the numbers (which it only takes until it has
+        # applied a configuration, or a site that tuned them here would silently drop to its
+        # defaults, which it did once) and the wiring, which it takes whenever the site has never
+        # named it — otherwise a site that chose its devices here would stop driving them.
+        if conf.get(CONF_HEATER_GRID_ENTITY):
             body["legacy"] = {"heaters": subentry_heaters(conf)}
 
         sent_catalogue = self._send_catalogue
