@@ -190,37 +190,88 @@ def thresholds(conf: dict[str, Any], applied: dict[str, Any] | None = None) -> d
     return out
 
 
-def config_from(conf: dict[str, Any], applied: dict[str, Any] | None = None) -> HeaterConfig | None:
-    """Build the heater config from a subentry's data, or None when no heater is set up.
+def heater_devices(conf: dict[str, Any], applied: dict[str, Any] | None = None) -> list[Heater]:
+    """The devices to drive, highest priority first.
 
-    The devices and their sensors are local, so they come from the subentry; the numbers come
-    from thresholds() above.
+    What the service sent wins, a list which may be empty when the site has decided it drives
+    none. Until it sends one, the subentry's slots are used, which is what a site that predates
+    the service owning them keeps running on.
     """
-    grid_entity = conf.get(CONF_HEATER_GRID_ENTITY)
-    if not grid_entity:
-        return None
-    t = thresholds(conf, applied)
-
-    heaters: list[Heater] = []
+    sent = (applied or {}).get("devices")
+    if isinstance(sent, list):
+        out: list[Heater] = []
+        for item in sent[:MAX_HEATERS]:
+            if not isinstance(item, dict):
+                continue
+            entity = item.get("entity")
+            if not isinstance(entity, str) or not entity:
+                continue
+            power = item.get("power_w")
+            mode = item.get("hvac_mode")
+            out.append(
+                Heater(
+                    entity=entity,
+                    power=float(power) if isinstance(power, (int, float)) else 0.0,
+                    hvac_mode=mode if isinstance(mode, str) and mode else DEFAULT_HEATER_HVAC_MODE,
+                )
+            )
+        return out
+    out = []
     for i in range(1, MAX_HEATERS + 1):
         entity = conf.get(heater_key(i, "entity"))
         if not entity:
             continue
-        power = conf.get(heater_key(i, "power"))
-        heaters.append(
+        out.append(
             Heater(
                 entity=entity,
-                power=float(power or 0),
+                power=float(conf.get(heater_key(i, "power")) or 0),
                 hvac_mode=conf.get(heater_key(i, "hvac_mode")) or DEFAULT_HEATER_HVAC_MODE,
             )
         )
+    return out
+
+
+def _sent(applied: dict[str, Any] | None, key: str) -> str | None:
+    """One of the service's settings, when it is a string it means anything by."""
+    value = (applied or {}).get(key)
+    return value if isinstance(value, str) and value else None
+
+
+def subentry_heaters(conf: dict[str, Any]) -> dict[str, Any]:
+    """This side's own heater settings, for the service to adopt as its starting point.
+
+    Sent until the service has applied a configuration: a site that had tuned these in Home
+    Assistant must not drop to the service's defaults, which it once did.
+    """
+    return {
+        **thresholds(conf),
+        "grid_entity": conf.get(CONF_HEATER_GRID_ENTITY) or "",
+        "flow_entity": conf.get(CONF_HEATER_FLOW_ENTITY) or "",
+        "consuming_state": conf.get(CONF_HEATER_CONSUMING_STATE) or DEFAULT_HEATER_CONSUMING_STATE,
+        "devices": [
+            {"entity": h.entity, "power_w": h.power, "hvac_mode": h.hvac_mode} for h in heater_devices(conf)
+        ],
+    }
+
+
+def config_from(conf: dict[str, Any], applied: dict[str, Any] | None = None) -> HeaterConfig | None:
+    """Build the heater config from what the site drives, or None when it drives nothing.
+
+    What the service sent comes first, since the choices are its now; what it has not sent comes
+    from the subentry, which is what the site keeps running on when the service cannot be reached.
+    """
+    grid_entity = _sent(applied, "grid_entity") or conf.get(CONF_HEATER_GRID_ENTITY)
+    if not grid_entity:
+        return None
+    heaters = heater_devices(conf, applied)
     if not heaters:
         return None
+    t = thresholds(conf, applied)
     return HeaterConfig(
         heaters=heaters,
         grid_entity=grid_entity,
-        flow_entity=conf.get(CONF_HEATER_FLOW_ENTITY) or None,
-        consuming=conf.get(CONF_HEATER_CONSUMING_STATE) or DEFAULT_HEATER_CONSUMING_STATE,
+        flow_entity=_sent(applied, "flow_entity") or conf.get(CONF_HEATER_FLOW_ENTITY) or None,
+        consuming=_sent(applied, "consuming_state") or conf.get(CONF_HEATER_CONSUMING_STATE) or DEFAULT_HEATER_CONSUMING_STATE,
         surplus_w=t["surplus_w"],
         max_import_w=t["max_import_w"],
         margin=t["margin"],
@@ -273,8 +324,9 @@ class HeaterController:
 
     @callback
     def refresh_config(self) -> None:
-        """Take the thresholds a new plan brought. The devices and their sensors do not change
-        here, so there is nothing to re-subscribe to; the next evaluation reads the new config."""
+        """Take what a new plan brought. A change of devices or sensors arrives through the
+        subentry instead, which reloads the entry and sets this up again from scratch; here it is
+        the numbers, which the next evaluation reads."""
         if self.config is not None:
             self.config = config_from(self.coordinator.conf, self.coordinator.applied_heaters())
 

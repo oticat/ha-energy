@@ -28,6 +28,8 @@ from homeassistant.util import dt as dt_util
 from .const import (
     CONF_GRID_ENTITY,
     CONF_GRID_EXPORT_ENTITY,
+    CONF_HEATER_CONSUMING_STATE,
+    CONF_HEATER_FLOW_ENTITY,
     CONF_HEATER_GRID_ENTITY,
     CONF_INVERTER,
     CONF_INVERTER_PREFIX,
@@ -44,11 +46,13 @@ from .const import (
     HISTORY_DAYS,
     INVERTER_DEYE,
     INVERTER_NONE,
+    MAX_HEATERS,
     PLAN_PATH,
+    heater_key,
 )
 from .catalogue import build_catalogue
 from .inverter import DeyeWriter
-from .heater import HeaterController, thresholds
+from .heater import HeaterController, subentry_heaters
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -58,6 +62,12 @@ FALLBACK_MIN_SOC = 10
 FALLBACK_SEGMENTS = 6
 # Bumped only if the shape of the stored configuration changes.
 APPLIED_STORE_VERSION = 1
+
+# The subentry keys that hold an entity id, so a rename in Home Assistant is caught before it is
+# written and a device that does not exist never replaces one that does.
+HEATER_ENTITY_KEYS = frozenset({CONF_HEATER_GRID_ENTITY, CONF_HEATER_FLOW_ENTITY} | {
+    heater_key(i, "entity") for i in range(1, MAX_HEATERS + 1)
+})
 
 
 class PlanRequestError(Exception):
@@ -208,7 +218,15 @@ class EnergyCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         back in `applied` for the settings page to show.
         """
         for conf_key, value in changed.items():
-            if conf_key == CONF_INVERTER:
+            if value is None:
+                continue   # a device slot the service no longer uses
+            if conf_key == CONF_HEATER_CONSUMING_STATE:
+                if not isinstance(value, str) or not value or len(value) > 40:
+                    return f"{value} is not a state name"
+            elif conf_key in HEATER_ENTITY_KEYS:
+                if self.hass.states.get(value) is None:
+                    return f"{value} does not exist"
+            elif conf_key == CONF_INVERTER:
                 if value not in (INVERTER_DEYE, INVERTER_NONE):
                     return f"{value} is not an inverter control"
             elif conf_key == CONF_INVERTER_PREFIX:
@@ -225,15 +243,21 @@ class EnergyCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                 return f"{prefix}_program_1_soc does not exist"
         return None
 
-    def _apply_entities(self, entities: Any) -> None:
+    def _apply_picks(self, config: Any) -> None:
         """Write the entities the service sent into the subentry, which is where HA keeps them.
 
-        Everything else is applied in place; the entities cannot be, because the sensors, the
-        writer and the controller are all built from them when the entry is set up. Updating the
+        Everything else is applied in place; these cannot be, because the sensors, the writer and
+        the heater controller are all built from them when the entry is set up. Updating the
         subentry reloads the entry, which rebuilds them from the new choices.
+
+        Both the inverter's entities and what the high-consumption devices need are here, because
+        they are the same kind of thing: a choice of this house's entities, made on the settings
+        page, which only Home Assistant can hold.
         """
-        if not isinstance(entities, dict) or not entities:
+        if not isinstance(config, dict):
             return
+        entities = config.get("entities") if isinstance(config.get("entities"), dict) else {}
+        heaters = config.get("heaters") if isinstance(config.get("heaters"), dict) else {}
         wanted: dict[str, Any] = {}
         for conf_key, value in (
             (CONF_SOC_ENTITY, entities.get("soc")),
@@ -244,16 +268,33 @@ class EnergyCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             (CONF_ZONE, entities.get("zone")),
             (CONF_INVERTER, entities.get("inverter")),
             (CONF_INVERTER_PREFIX, entities.get("inverter_prefix")),
+            (CONF_HEATER_GRID_ENTITY, heaters.get("grid_entity")),
+            (CONF_HEATER_FLOW_ENTITY, heaters.get("flow_entity")),
+            (CONF_HEATER_CONSUMING_STATE, heaters.get("consuming_state")),
         ):
             if isinstance(value, str) and value:
                 wanted[conf_key] = value
+        # The devices, one slot each, in priority order. A slot the service does not fill is
+        # cleared, so a device it drops stops being switched; None in the subentry is simply an
+        # empty slot.
+        sent = heaters.get("devices")
+        if isinstance(sent, list):
+            for i in range(1, MAX_HEATERS + 1):
+                item = sent[i - 1] if i <= len(sent) else None
+                item = item if isinstance(item, dict) else {}
+                entity = item.get("entity")
+                power = item.get("power_w")
+                mode = item.get("hvac_mode")
+                wanted[heater_key(i, "entity")] = entity if isinstance(entity, str) and entity else None
+                wanted[heater_key(i, "power")] = float(power) if isinstance(power, (int, float)) else None
+                wanted[heater_key(i, "hvac_mode")] = mode if isinstance(mode, str) and mode else None
         changed = {k: v for k, v in wanted.items() if self.subentry.data.get(k) != v}
         if not changed:
             return
         problem = self._entity_problem(changed)
         if problem:
             raise ValueError(problem)
-        _LOGGER.warning("Applying the site entities from dom.oti.cat: %s", ", ".join(sorted(changed)))
+        _LOGGER.warning("Applying the entities dom.oti.cat chose: %s", ", ".join(sorted(changed)))
         if self.hass.config_entries.async_update_subentry(
             self.config_entry, self.subentry, data={**self.subentry.data, **changed}, title=self.subentry.title
         ):
@@ -377,7 +418,7 @@ class EnergyCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         # can adopt the ones the site has never expressed itself. Without this, a site that had
         # tuned them here would silently drop to the service's defaults, which it did once.
         if self.applied is None and conf.get(CONF_HEATER_GRID_ENTITY):
-            body["legacy"] = {"heaters": thresholds(conf)}
+            body["legacy"] = {"heaters": subentry_heaters(conf)}
 
         sent_catalogue = self._send_catalogue
         if sent_catalogue:
@@ -420,7 +461,7 @@ class EnergyCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                 self.applied = config
                 self.apply_error = None
                 self._apply_config()
-                self._apply_entities(config.get("entities"))
+                self._apply_picks(config)
             except Exception as err:  # noqa: BLE001 - a bad configuration must not stop planning
                 self.applied = previous
                 self.apply_error = str(err)
@@ -432,7 +473,7 @@ class EnergyCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         # Home Assistant, or a hand edit, can drop what we wrote into the subentry, and the site
         # would then read nothing while believing it is up to date.
         try:
-            self._apply_entities((self.applied or {}).get("entities"))
+            self._apply_picks(self.applied)
             self.apply_error = None
         except Exception as err:  # noqa: BLE001 - a bad entity must not stop planning
             self.apply_error = str(err)

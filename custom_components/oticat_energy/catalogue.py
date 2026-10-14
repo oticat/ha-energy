@@ -50,6 +50,17 @@ def build_catalogue(hass: HomeAssistant) -> dict[str, Any]:
 
     switches = [s for s in states if _domain(s.entity_id) in SWITCH_DOMAINS]
 
+    # Grid power in W, for the water heaters' controller.
+    power = [s for s in states
+             if _domain(s.entity_id) == "sensor"
+             and s.attributes.get("device_class") == "power"]
+
+    # Entities whose state is not a reading: where a meter that gives unsigned power says which
+    # way the energy is going.
+    flow = [s for s in states
+            if _domain(s.entity_id) in ("sensor", "binary_sensor")
+            and s.attributes.get("unit_of_measurement") is None]
+
     # Zones with coordinates, home first: the plan takes its solar forecast and temperature from
     # the chosen one.
     zones = [s for s in states
@@ -63,7 +74,9 @@ def build_catalogue(hass: HomeAssistant) -> dict[str, Any]:
     return {
         "soc": [_label(s) for s in soc[:MAX_PER_GROUP]],
         "energy": [_label(s) for s in energy[:MAX_PER_GROUP]],
+        "power": [_label(s) for s in power[:MAX_PER_GROUP]],
         "switches": [_label(s) for s in switches[:MAX_PER_GROUP]],
+        "flow": [_label(s) for s in flow[:MAX_PER_GROUP]],
         "zones": [_label(s) for s in zones[:MAX_PER_GROUP]],
         "inverters": sorted(p for p in inverters if INVERTER.match(p))[:MAX_INVERTERS],
     }

@@ -121,17 +121,19 @@ Each site is one place, and it can drive one inverter and its water heaters.
 ### 3. Add your inverter
 
 On the Oticat Energy entry, choose **Add inverter** and paste the **site token**. That is all this
-side needs: which sensors it reads is chosen on dom.oti.cat, from the list this integration
-reports, so the form does not ask about them.
-
-![The Add inverter form](docs/ha-add-inverter.png)
+side needs — the form asks for nothing else. Which sensors it reads and which devices it drives are
+chosen on dom.oti.cat, from the list this integration reports.
 
 Add one inverter per site. Each becomes its own device, with its own sensors.
 
-Then go back to the site on dom.oti.cat and open **Site settings**. Every sensor it reads is there,
-each one in the block it belongs to — the battery SOC with the battery, the solar production and
-the location with the panels, the meters with the forecasts — and the lists come from what this
-integration reports. A change reaches Home Assistant on its next check-in, within fifteen minutes.
+Then go back to the site on dom.oti.cat and open **Site settings**. Everything this side does is
+there, each choice in the block it belongs to — the battery SOC with the battery, the solar
+production and the location with the panels, the meters with the forecasts, the water heaters and
+their sensors with the high-consumption devices — and the lists come from what this integration
+reports. A change reaches Home Assistant on its next check-in, within fifteen minutes.
+
+Adding or removing an inverter here does not lose any of that: the choices live in the site, not in
+the form.
 
 ### 4. Set up the water heaters (optional)
 
@@ -185,13 +187,9 @@ same wherever you open them and there is only one place to change them.
 | **Surplus that counts as exporting** | A day counts as dry when it exported less than this. Usually 0.5 kWh |
 | **Top up in a dry spell up to / Cheap price during a dry spell** | The most the integration will pay for grid energy during a dry spell |
 
-What stays in Home Assistant is only what is local to your house:
-
-| Setting | What it means |
-|---------|----------------|
-| **Grid power sensor** | Grid power in watts. Positive when buying, negative when selling. If your meter gives an unsigned number, add the direction sensor below |
+| **Grid power sensor** | Grid power in watts. Positive when buying, negative when selling. If your meter gives an unsigned number, fill in the direction sensor too |
 | **Grid flow direction sensor** (optional) | An entity whose state tells buying from selling |
-| **Device** | The switch (or climate entity) of each heater, and the power it draws when it is on. The slot order is the priority |
+| **Device** | The switch (or climate entity) of each heater, the power it draws when it is on, and the mode a climate one is set to. The list order is the priority |
 
 ## The entities you get
 

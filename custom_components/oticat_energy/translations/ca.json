@@ -29,156 +29,22 @@
       "step": {
         "user": {
           "title": "Inversor",
-          "description": "La configuració de bateria, plaques solars i xarxa es fa a dom.oti.cat, a Automatització d'inversors, on cada lloc té el seu token i s'hi trien els sensors. Aquí només cal el token: les entitats que llegeix arriben amb el pla.",
+          "description": "Tot el que fa a aquest lloc es configura a dom.oti.cat, a Automatització d'inversors: la bateria, les plaques solars, el contracte de xarxa, els dispositius de consum elevat i quines entitats d'aquest Home Assistant llegeix i acciona. Aquí només cal el token del lloc, i informa del que té perquè la pàgina ho pugui oferir.",
           "data": {
             "token": "Token del lloc"
           },
           "data_description": {
             "token": "Es mostra en crear el lloc a dom.oti.cat."
-          },
-          "sections": {
-            "water_heaters": {
-              "name": "Escalfadors d'aigua",
-              "data": {
-                "heater_grid_entity": "Sensor de potència de xarxa (W)",
-                "heater_flow_entity": "Sensor de direcció del flux de xarxa",
-                "heater_consuming_state": "Valor de l'estat d'importació"
-              },
-              "data_description": {
-                "heater_grid_entity": "Potència de xarxa en W, amb signe o amb el sensor de direcció de sota. Els escalfadors aprofiten l'excedent que mostra i s'aturen quan puja massa.",
-                "heater_flow_entity": "Entitat l'estat de la qual distingeix importació d'exportació, per a comptadors que no donen un valor amb signe.",
-                "heater_consuming_state": "Estat del sensor de flux que vol dir importar."
-              }
-            },
-            "heater_1": {
-              "name": "Escalfador 1",
-              "data": {
-                "heater_1_entity": "Dispositiu",
-                "heater_1_power": "Potència nominal (W)",
-                "heater_1_hvac_mode": "Mode de climatització"
-              },
-              "data_description": {
-                "heater_1_entity": "Entitat switch o climate. La prioritat és l'ordre de les caselles: l'escalfador 1 funciona abans que el 2. Deixeu una casella buida per fer servir menys escalfadors.",
-                "heater_1_power": "Potència que consumeix mentre funciona, per a la comprovació prèvia.",
-                "heater_1_hvac_mode": "Mode que s'activa en encendre una entitat climate (s'ignora per als switches)."
-              }
-            },
-            "heater_2": {
-              "name": "Escalfador 2",
-              "data": {
-                "heater_2_entity": "Dispositiu",
-                "heater_2_power": "Potència nominal (W)",
-                "heater_2_hvac_mode": "Mode de climatització"
-              },
-              "data_description": {
-                "heater_2_entity": "Entitat switch o climate. La prioritat és l'ordre de les caselles: l'escalfador 1 funciona abans que el 2. Deixeu una casella buida per fer servir menys escalfadors.",
-                "heater_2_power": "Potència que consumeix mentre funciona, per a la comprovació prèvia.",
-                "heater_2_hvac_mode": "Mode que s'activa en encendre una entitat climate (s'ignora per als switches)."
-              }
-            },
-            "heater_3": {
-              "name": "Escalfador 3",
-              "data": {
-                "heater_3_entity": "Dispositiu",
-                "heater_3_power": "Potència nominal (W)",
-                "heater_3_hvac_mode": "Mode de climatització"
-              },
-              "data_description": {
-                "heater_3_entity": "Entitat switch o climate. La prioritat és l'ordre de les caselles: l'escalfador 1 funciona abans que el 2. Deixeu una casella buida per fer servir menys escalfadors.",
-                "heater_3_power": "Potència que consumeix mentre funciona, per a la comprovació prèvia.",
-                "heater_3_hvac_mode": "Mode que s'activa en encendre una entitat climate (s'ignora per als switches)."
-              }
-            },
-            "heater_4": {
-              "name": "Escalfador 4",
-              "data": {
-                "heater_4_entity": "Dispositiu",
-                "heater_4_power": "Potència nominal (W)",
-                "heater_4_hvac_mode": "Mode de climatització"
-              },
-              "data_description": {
-                "heater_4_entity": "Entitat switch o climate. La prioritat és l'ordre de les caselles: l'escalfador 1 funciona abans que el 2. Deixeu una casella buida per fer servir menys escalfadors.",
-                "heater_4_power": "Potència que consumeix mentre funciona, per a la comprovació prèvia.",
-                "heater_4_hvac_mode": "Mode que s'activa en encendre una entitat climate (s'ignora per als switches)."
-              }
-            }
           }
         },
         "reconfigure": {
           "title": "Inversor",
-          "description": "La configuració de bateria, plaques solars i xarxa es fa a dom.oti.cat, a Automatització d'inversors, on cada lloc té el seu token i s'hi trien els sensors. Aquí només cal el token: les entitats que llegeix arriben amb el pla.",
+          "description": "Tot el que fa a aquest lloc es configura a dom.oti.cat, a Automatització d'inversors: la bateria, les plaques solars, el contracte de xarxa, els dispositius de consum elevat i quines entitats d'aquest Home Assistant llegeix i acciona. Aquí només cal el token del lloc, i informa del que té perquè la pàgina ho pugui oferir.",
           "data": {
             "token": "Token del lloc"
           },
           "data_description": {
             "token": "Es mostra en crear el lloc a dom.oti.cat."
-          },
-          "sections": {
-            "water_heaters": {
-              "name": "Escalfadors d'aigua",
-              "data": {
-                "heater_grid_entity": "Sensor de potència de xarxa (W)",
-                "heater_flow_entity": "Sensor de direcció del flux de xarxa",
-                "heater_consuming_state": "Valor de l'estat d'importació"
-              },
-              "data_description": {
-                "heater_grid_entity": "Potència de xarxa en W, amb signe o amb el sensor de direcció de sota. Els escalfadors aprofiten l'excedent que mostra i s'aturen quan puja massa.",
-                "heater_flow_entity": "Entitat l'estat de la qual distingeix importació d'exportació, per a comptadors que no donen un valor amb signe.",
-                "heater_consuming_state": "Estat del sensor de flux que vol dir importar."
-              }
-            },
-            "heater_1": {
-              "name": "Escalfador 1",
-              "data": {
-                "heater_1_entity": "Dispositiu",
-                "heater_1_power": "Potència nominal (W)",
-                "heater_1_hvac_mode": "Mode de climatització"
-              },
-              "data_description": {
-                "heater_1_entity": "Entitat switch o climate. La prioritat és l'ordre de les caselles: l'escalfador 1 funciona abans que el 2. Deixeu una casella buida per fer servir menys escalfadors.",
-                "heater_1_power": "Potència que consumeix mentre funciona, per a la comprovació prèvia.",
-                "heater_1_hvac_mode": "Mode que s'activa en encendre una entitat climate (s'ignora per als switches)."
-              }
-            },
-            "heater_2": {
-              "name": "Escalfador 2",
-              "data": {
-                "heater_2_entity": "Dispositiu",
-                "heater_2_power": "Potència nominal (W)",
-                "heater_2_hvac_mode": "Mode de climatització"
-              },
-              "data_description": {
-                "heater_2_entity": "Entitat switch o climate. La prioritat és l'ordre de les caselles: l'escalfador 1 funciona abans que el 2. Deixeu una casella buida per fer servir menys escalfadors.",
-                "heater_2_power": "Potència que consumeix mentre funciona, per a la comprovació prèvia.",
-                "heater_2_hvac_mode": "Mode que s'activa en encendre una entitat climate (s'ignora per als switches)."
-              }
-            },
-            "heater_3": {
-              "name": "Escalfador 3",
-              "data": {
-                "heater_3_entity": "Dispositiu",
-                "heater_3_power": "Potència nominal (W)",
-                "heater_3_hvac_mode": "Mode de climatització"
-              },
-              "data_description": {
-                "heater_3_entity": "Entitat switch o climate. La prioritat és l'ordre de les caselles: l'escalfador 1 funciona abans que el 2. Deixeu una casella buida per fer servir menys escalfadors.",
-                "heater_3_power": "Potència que consumeix mentre funciona, per a la comprovació prèvia.",
-                "heater_3_hvac_mode": "Mode que s'activa en encendre una entitat climate (s'ignora per als switches)."
-              }
-            },
-            "heater_4": {
-              "name": "Escalfador 4",
-              "data": {
-                "heater_4_entity": "Dispositiu",
-                "heater_4_power": "Potència nominal (W)",
-                "heater_4_hvac_mode": "Mode de climatització"
-              },
-              "data_description": {
-                "heater_4_entity": "Entitat switch o climate. La prioritat és l'ordre de les caselles: l'escalfador 1 funciona abans que el 2. Deixeu una casella buida per fer servir menys escalfadors.",
-                "heater_4_power": "Potència que consumeix mentre funciona, per a la comprovació prèvia.",
-                "heater_4_hvac_mode": "Mode que s'activa en encendre una entitat climate (s'ignora per als switches)."
-              }
-            }
           }
         }
       },
@@ -187,9 +53,7 @@
         "cannot_connect": "No s'ha pogut obtenir un pla del servei.",
         "soc_unavailable": "L'entitat de SOC no té valor.",
         "inverter_not_found": "No s'han trobat programes de l'inversor amb aquest prefix.",
-        "different_site": "Aquest token és d'un altre lloc. Afegeix-lo com a inversor nou.",
-        "heater_grid_required": "Definiu el sensor de potència de xarxa per fer funcionar els escalfadors.",
-        "heater_power_required": "Cada escalfador necessita la seva potència nominal."
+        "different_site": "Aquest token és d'un altre lloc. Afegeix-lo com a inversor nou."
       },
       "abort": {
         "site_updated": "Aquest lloc ja estava configurat aquí. El seu inversor ara fa servir la configuració nova.",
