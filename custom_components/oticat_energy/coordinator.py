@@ -252,10 +252,15 @@ class EnergyCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         problem = self._entity_problem(changed)
         if problem:
             raise ValueError(problem)
-        _LOGGER.info("Applying the site entities from dom.oti.cat: %s", ", ".join(sorted(changed)))
-        self.hass.config_entries.async_update_subentry(
+        _LOGGER.warning("Applying the site entities from dom.oti.cat: %s", ", ".join(sorted(changed)))
+        if self.hass.config_entries.async_update_subentry(
             self.config_entry, self.subentry, data={**self.subentry.data, **changed}, title=self.subentry.title
-        )
+        ):
+            # The sensors, the writer and the controller were all built from the old choices, so
+            # the entry has to be set up again. Scheduled rather than awaited: this runs in the
+            # middle of an update, and Home Assistant's own advice is not to await a reload from
+            # inside the integration that asked for it.
+            self.hass.config_entries.async_schedule_reload(self.config_entry.entry_id)
 
     @callback
     def _apply_config(self) -> None:
