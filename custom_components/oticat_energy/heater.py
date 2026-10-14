@@ -161,11 +161,23 @@ def decide(config: HeaterConfig, s: Snapshot) -> list[bool]:
     return want
 
 
-def config_from(conf: dict[str, Any]) -> HeaterConfig | None:
-    """Build the heater config from a subentry's data, or None when no heater is set up."""
+def config_from(conf: dict[str, Any], applied: dict[str, Any] | None = None) -> HeaterConfig | None:
+    """Build the heater config from a subentry's data, or None when no heater is set up.
+
+    The devices and their sensors are local, so they come from the subentry. The thresholds are
+    the site's energy policy and live on dom; the plan carries them and `applied` is the last set
+    the service sent. Anything the service is not sending falls back to the subentry, so a site
+    whose service is unreachable keeps running exactly as it was.
+    """
     grid_entity = conf.get(CONF_HEATER_GRID_ENTITY)
     if not grid_entity:
         return None
+    from_service = applied or {}
+
+    def number(key: str, conf_key: str, default: float) -> float:
+        value = from_service.get(key)
+        return float(value) if isinstance(value, (int, float)) else float(conf.get(conf_key, default))
+
     heaters: list[Heater] = []
     for i in range(1, MAX_HEATERS + 1):
         entity = conf.get(heater_key(i, "entity"))
@@ -186,18 +198,18 @@ def config_from(conf: dict[str, Any]) -> HeaterConfig | None:
         grid_entity=grid_entity,
         flow_entity=conf.get(CONF_HEATER_FLOW_ENTITY) or None,
         consuming=conf.get(CONF_HEATER_CONSUMING_STATE) or DEFAULT_HEATER_CONSUMING_STATE,
-        surplus_w=float(conf.get(CONF_HEATER_SURPLUS_W, DEFAULT_HEATER_SURPLUS_W)),
-        max_import_w=float(conf.get(CONF_HEATER_MAX_IMPORT_W, DEFAULT_HEATER_MAX_IMPORT_W)),
-        margin=float(conf.get(CONF_HEATER_MARGIN, DEFAULT_HEATER_MARGIN)),
-        min_elevation=float(conf.get(CONF_HEATER_MIN_ELEVATION, DEFAULT_HEATER_MIN_ELEVATION)),
-        min_azimuth=float(conf.get(CONF_HEATER_MIN_AZIMUTH, DEFAULT_HEATER_MIN_AZIMUTH)),
-        max_azimuth=float(conf.get(CONF_HEATER_MAX_AZIMUTH, DEFAULT_HEATER_MAX_AZIMUTH)),
+        surplus_w=number("surplus_w", CONF_HEATER_SURPLUS_W, DEFAULT_HEATER_SURPLUS_W),
+        max_import_w=number("max_import_w", CONF_HEATER_MAX_IMPORT_W, DEFAULT_HEATER_MAX_IMPORT_W),
+        margin=number("margin", CONF_HEATER_MARGIN, DEFAULT_HEATER_MARGIN),
+        min_elevation=number("min_elevation", CONF_HEATER_MIN_ELEVATION, DEFAULT_HEATER_MIN_ELEVATION),
+        min_azimuth=number("min_azimuth", CONF_HEATER_MIN_AZIMUTH, DEFAULT_HEATER_MIN_AZIMUTH),
+        max_azimuth=number("max_azimuth", CONF_HEATER_MAX_AZIMUTH, DEFAULT_HEATER_MAX_AZIMUTH),
         # The export register the day chart already uses; if the site has none, the signed grid
         # sensor is used instead.
         export_entity=conf.get(CONF_GRID_EXPORT_ENTITY) or None,
-        dry_days=int(conf.get(CONF_HEATER_DRY_DAYS, DEFAULT_HEATER_DRY_DAYS)),
-        export_min_kwh=float(conf.get(CONF_HEATER_EXPORT_MIN_KWH, DEFAULT_HEATER_EXPORT_MIN_KWH)),
-        cheap_price=float(conf.get(CONF_HEATER_CHEAP_PRICE, DEFAULT_HEATER_CHEAP_PRICE)),
+        dry_days=int(number("dry_days", CONF_HEATER_DRY_DAYS, DEFAULT_HEATER_DRY_DAYS)),
+        export_min_kwh=number("export_min_kwh", CONF_HEATER_EXPORT_MIN_KWH, DEFAULT_HEATER_EXPORT_MIN_KWH),
+        cheap_price=number("cheap_price", CONF_HEATER_CHEAP_PRICE, DEFAULT_HEATER_CHEAP_PRICE),
     )
 
 
@@ -221,7 +233,7 @@ class HeaterController:
     def __init__(self, hass: HomeAssistant, coordinator) -> None:
         self.hass = hass
         self.coordinator = coordinator
-        self.config = config_from(coordinator.conf)
+        self.config = config_from(coordinator.conf, coordinator.applied_heaters())
         self.status = "idle"
         self.devices: list[_HeaterView] = []
         self.days_without_export = 0
@@ -235,6 +247,13 @@ class HeaterController:
     @property
     def active(self) -> bool:
         return self.config is not None
+
+    @callback
+    def refresh_config(self) -> None:
+        """Take the thresholds a new plan brought. The devices and their sensors do not change
+        here, so there is nothing to re-subscribe to; the next evaluation reads the new config."""
+        if self.config is not None:
+            self.config = config_from(self.coordinator.conf, self.coordinator.applied_heaters())
 
     def async_add_listener(self, update_callback: Any) -> Any:
         """Entities that show the heaters register here to be written as soon as they change."""

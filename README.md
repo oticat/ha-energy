@@ -155,6 +155,12 @@ Each heater is a switch (or a climate entity) with the power it draws when it is
 
 You can leave the whole section empty if you only want the battery.
 
+Only the *entities* live here, because they are local to your Home Assistant. The thresholds they
+run on — the surplus, the import ceiling, the sun window and the dry-spell limits — are set on
+dom.oti.cat, with the rest of the site's settings, and the integration picks them up with every
+plan. Anything you set here is only used until the service sends its own, which is what lets the
+heaters keep working with dom.oti.cat unreachable.
+
 ## The settings, in plain words
 
 Most settings live on dom.oti.cat, under **Inverter automation > Edit settings**, so they are the
@@ -177,23 +183,23 @@ same wherever you open them and there is only one place to change them.
 | **Consumption source** | Whether the house consumption comes from a sensor, or is worked out from the grid and solar meters |
 | **Daily consumption** | A rough daily figure, used until there is a full week of real history |
 | **Solar / Consumption margin** | How cautious to be: the solar forecast is cut and consumption raised by this much |
-| **Heat on cheap grid / Max buy price** | The "free energy" limit for the water heaters (0.01 €/kWh by default) |
-
-The water-heater settings that are specific to *your* house (the grid power sensor, the ceiling on
-grid import, the sun window and the dry-spell limits) are set in Home Assistant, in the Water
-heaters section:
-
-| Setting | What it means |
-|---------|----------------|
-| **Grid power sensor** | Grid power in watts. Positive when buying, negative when selling. If your meter gives an unsigned number, add the direction sensor below |
-| **Grid flow direction sensor** (optional) | An entity whose state tells buying from selling |
+| **Program power** | The battery power limit written to every program |
+| **Heat from the grid up to / Max buy price** | Which hours may heat the devices from the grid, surplus or not. On a fixed tariff you name a period; on PVPC, a price (0.01 €/kWh by default, which means only genuine surplus) |
 | **Surplus threshold** | The grid is kept around this value while heating on surplus. Usually 100 W |
 | **Maximum grid import** | The ceiling on total grid import while heating on cheap grid. Set it a little under your contracted power, so it never trips the breaker |
 | **Anti-flapping margin** | A dead band around the thresholds, so a heater does not switch on and off around the limit |
 | **Sun window** | Do not heat on surplus when the sun is too low or behind morning/evening shade |
 | **Days without surplus to top up** | After this many full days without exporting surplus, the heaters are probably short, so they may also heat from the grid |
 | **Surplus that counts as exporting** | A day counts as dry when it exported less than this. Usually 0.5 kWh |
-| **Cheap price during a dry spell** | The most the integration will pay for grid energy during a dry spell |
+| **Top up in a dry spell up to / Cheap price during a dry spell** | The most the integration will pay for grid energy during a dry spell |
+
+What stays in Home Assistant is only what is local to your house:
+
+| Setting | What it means |
+|---------|----------------|
+| **Grid power sensor** | Grid power in watts. Positive when buying, negative when selling. If your meter gives an unsigned number, add the direction sensor below |
+| **Grid flow direction sensor** (optional) | An entity whose state tells buying from selling |
+| **Device** | The switch (or climate entity) of each heater, and the power it draws when it is on. The slot order is the priority |
 
 ## The entities you get
 

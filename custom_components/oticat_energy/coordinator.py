@@ -19,6 +19,7 @@ from homeassistant.const import STATE_UNAVAILABLE, STATE_UNKNOWN, __version__ as
 from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from homeassistant.helpers.event import async_track_time_change
+from homeassistant.helpers.storage import Store
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator
 from homeassistant.loader import async_get_integration
 from homeassistant.util import dt as dt_util
@@ -51,6 +52,8 @@ UPDATE_INTERVAL = timedelta(minutes=15)
 HISTORY_REFRESH = timedelta(hours=1)
 FALLBACK_MIN_SOC = 10
 FALLBACK_SEGMENTS = 6
+# Bumped only if the shape of the stored configuration changes.
+APPLIED_STORE_VERSION = 1
 
 
 class PlanRequestError(Exception):
@@ -149,6 +152,12 @@ class EnergyCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         self.error: str | None = None
         self._history: dict[str, tuple[datetime, list[dict[str, Any]]]] = {}
         self._version: str | None = None
+        # The configuration the service last sent, kept here and in a small store so it survives
+        # a restart: dom is the source of truth, and a service that cannot be reached must not
+        # change how the site already behaves.
+        self._store = Store(hass, APPLIED_STORE_VERSION, f"{DOMAIN}.{subentry.subentry_id}")
+        self.applied: dict[str, Any] | None = None
+        self.apply_error: str | None = None
         conf = self.conf
         self.writer: DeyeWriter | None = None
         if conf.get(CONF_INVERTER) == INVERTER_DEYE:
@@ -162,10 +171,42 @@ class EnergyCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         """The inverter's settings plus the service URL from the parent entry."""
         return {CONF_URL: self.config_entry.data.get(CONF_URL, DEFAULT_URL), **self.subentry.data}
 
+    def applied_heaters(self) -> dict[str, Any] | None:
+        """The device thresholds the service last sent, or None when it has not sent any."""
+        heaters = (self.applied or {}).get("heaters")
+        return heaters if isinstance(heaters, dict) else None
+
+    def applied_config(self) -> dict[str, Any]:
+        """The part of the configuration this side is running, echoed with each plan.
+
+        Only what the integration actually applies is echoed, so the service can tell what is in
+        sync from what is still waiting; everything else in the service's configuration is none of
+        our business.
+        """
+        applied = self.applied or {}
+        out: dict[str, Any] = {}
+        if isinstance(applied.get("heaters"), dict):
+            out["heaters"] = applied["heaters"]
+        if isinstance(applied.get("program_power"), (int, float)):
+            out["program_power"] = applied["program_power"]
+        return out
+
+    @callback
+    def _apply_config(self) -> None:
+        """Hand the configuration the service sent to the parts that use it."""
+        if self.writer:
+            power = (self.applied or {}).get("program_power")
+            if isinstance(power, (int, float)) and power > 0:
+                self.writer.program_power = int(power)
+        self.heater.refresh_config()
+
     async def async_setup(self) -> None:
         """Recompute the current view at every hour change, between plan fetches."""
         # Reported with each plan so dom.oti.cat can show which version runs and offer updates.
         self._version = str((await async_get_integration(self.hass, DOMAIN)).version)
+        stored = await self._store.async_load() or {}
+        self.applied = stored.get("config") if isinstance(stored.get("config"), dict) else None
+        self._apply_config()
 
         @callback
         def _hour_changed(_now: datetime) -> None:
@@ -247,16 +288,44 @@ class EnergyCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             "state": {"soc": soc},
             **histories,
             "entities": entities(conf),
+            # What this side is running, so the service can tell what is in sync from what is
+            # still waiting and what failed.
+            "applied": {
+                "ok": self.apply_error is None,
+                "error": self.apply_error,
+                "config": self.applied_config(),
+            },
             "client": {"integration": self._version, "ha": HA_VERSION},
         }
         try:
             self.plan = await request_plan(self.hass, conf, body)
             self.error = None if "zone" in where else f"{conf.get(CONF_ZONE) or DEFAULT_ZONE} not found, using Home Assistant's location"
+            await self._take_config(self.plan.get("config") if isinstance(self.plan, dict) else None)
         except PlanRequestError as err:
             # Keep the last plan: it covers until its horizon_end, usually the end of tomorrow.
             self.error = str(err)
             _LOGGER.warning("Plan request failed: %s", err)
         return self.view()
+
+    async def _take_config(self, config: Any) -> None:
+        """Apply the configuration the service sent, and keep it for a restart.
+
+        dom is the source of truth, so a new configuration is applied as it arrives. A failure
+        leaves the previous one in place and is reported back with the next plan.
+        """
+        if not isinstance(config, dict) or config == self.applied:
+            return
+        previous = self.applied
+        try:
+            self.applied = config
+            self.apply_error = None
+            self._apply_config()
+        except Exception as err:  # noqa: BLE001 - a bad configuration must not stop planning
+            self.applied = previous
+            self.apply_error = str(err)
+            _LOGGER.warning("Applying the site configuration failed: %s", err)
+            return
+        await self._store.async_save({"config": config})
 
     def view(self) -> dict[str, Any]:
         """What applies now, from the last plan, or self-consumption once it has run out."""
