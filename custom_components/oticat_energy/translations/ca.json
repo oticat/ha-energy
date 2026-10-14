@@ -29,29 +29,12 @@
       "step": {
         "user": {
           "title": "Inversor",
-          "description": "La bateria, les plaques i la xarxa es configuren a dom.oti.cat, a Automatització de l'inversor. Cada lloc hi té el seu token.",
+          "description": "La configuració de bateria, plaques solars i xarxa es fa a dom.oti.cat, a Automatització d'inversors, on cada lloc té el seu token i s'hi trien els sensors. Aquí només cal el token: les entitats que llegeix arriben amb el pla.",
           "data": {
-            "token": "Token del lloc",
-            "soc_entity": "Entitat de SOC de la bateria",
-            "load_entity": "Sensor d'energia consumida per la casa",
-            "grid_entity": "Sensor d'energia de la xarxa (opcional)",
-            "grid_export_entity": "Sensor d'energia exportada a la xarxa (opcional)",
-            "solar_entity": "Sensor d'energia produïda pels panells (opcional)",
-            "zone": "Ubicació",
-            "inverter": "Control de l'inversor",
-            "inverter_prefix": "Prefix de les entitats de l'inversor",
-            "program_power": "Potència dels programes"
+            "token": "Token del lloc"
           },
           "data_description": {
-            "token": "Es mostra en crear el lloc a dom.oti.cat.",
-            "soc_entity": "Estat de càrrega en percentatge.",
-            "load_entity": "kWh totals que gasta la casa, sense comptar la càrrega de la bateria. El pla n'aprèn el patró horari dels darrers 14 dies.",
-            "grid_entity": "kWh totals que es prenen de la xarxa, perquè el gràfic del dia pugui mostrar el cost real de xarxa. Un comptador amb signe que es torna negatiu quan s'aboca a la xarxa també serveix.",
-            "grid_export_entity": "kWh totals que s'aboquen a la xarxa, si el comptador duu un registre d'exportació a part. Serveix per valorar les hores que han exportat.",
-            "solar_entity": "kWh totals produïts per les plaques. El gràfic del dia mostra aquesta producció mesurada a les hores ja passades; les hores futures continuen modelades.",
-            "zone": "Zona per a la previsió solar i la temperatura. Casa és la ubicació del mateix Home Assistant. Per fer servir un altre lloc, afegeix una zona a Configuració > Àrees, etiquetes i zones > Zones.",
-            "inverter_prefix": "Per a number.deye_program_1_soc és deye.",
-            "program_power": "Límit de potència de la bateria que s'escriu a cada programa horari."
+            "token": "Es mostra en crear el lloc a dom.oti.cat."
           },
           "sections": {
             "water_heaters": {
@@ -59,30 +42,12 @@
               "data": {
                 "heater_grid_entity": "Sensor de potència de xarxa (W)",
                 "heater_flow_entity": "Sensor de direcció del flux de xarxa",
-                "heater_consuming_state": "Valor de l'estat d'importació",
-                "heater_surplus_w": "Llindar d'excedent (W)",
-                "heater_max_import_w": "Importació màxima de xarxa (W)",
-                "heater_margin": "Marge anti-oscil·lació (W)",
-                "heater_min_elevation": "Elevació mínima del sol (°)",
-                "heater_min_azimuth": "Límit est de l'azimut (°)",
-                "heater_max_azimuth": "Límit oest de l'azimut (°)",
-                "heater_dry_days": "Dies sense excedent per recarregar",
-                "heater_export_min_kwh": "Excedent que compta com a exportació (kWh)",
-                "heater_cheap_price": "Preu barat durant una sequera (€/kWh)"
+                "heater_consuming_state": "Valor de l'estat d'importació"
               },
               "data_description": {
                 "heater_grid_entity": "Potència de xarxa en W, amb signe o amb el sensor de direcció de sota. Els escalfadors aprofiten l'excedent que mostra i s'aturen quan puja massa.",
                 "heater_flow_entity": "Entitat l'estat de la qual distingeix importació d'exportació, per a comptadors que no donen un valor amb signe.",
-                "heater_consuming_state": "Estat del sensor de flux que vol dir importar.",
-                "heater_surplus_w": "La xarxa es manté al voltant d'aquest valor mentre s'escalfa amb excedent. Normalment 100 W.",
-                "heater_max_import_w": "Sostre de la importació total de xarxa mentre s'escalfa amb xarxa barata, perquè no salti el magnetotèrmic. Poseu-lo una mica per sota de la potència contractada.",
-                "heater_margin": "Banda d'histèresi al voltant dels llindars, en W.",
-                "heater_min_elevation": "No escalfar amb excedent quan el sol és per sota d'aquest angle.",
-                "heater_min_azimuth": "No escalfar amb excedent mentre el sol és per sota d'això (ombra del matí). 90 = est.",
-                "heater_max_azimuth": "No escalfar amb excedent mentre el sol és per sobre d'això (ombra de la tarda). 270 = oest.",
-                "heater_dry_days": "Quan el lloc porta aquests dies sencers sense exportar excedent, els escalfadors probablement van curts: aleshores també poden escalfar de xarxa en hores barates. Amb 2 dobleguem les ~5 sequeres reals per any.",
-                "heater_export_min_kwh": "Un dia compta com a sec quan ha exportat menys d'això. Normalment 0,5.",
-                "heater_cheap_price": "Durant una sequera els escalfadors també poden escalfar de xarxa a aquest preu o menys. El termòstat limita l'energia, així que només costa uns quants kWh uns quants dies l'any."
+                "heater_consuming_state": "Estat del sensor de flux que vol dir importar."
               }
             },
             "heater_1": {
@@ -141,29 +106,12 @@
         },
         "reconfigure": {
           "title": "Inversor",
-          "description": "La bateria, les plaques i la xarxa es configuren a dom.oti.cat, a Automatització de l'inversor. Cada lloc hi té el seu token.",
+          "description": "La configuració de bateria, plaques solars i xarxa es fa a dom.oti.cat, a Automatització d'inversors, on cada lloc té el seu token i s'hi trien els sensors. Aquí només cal el token: les entitats que llegeix arriben amb el pla.",
           "data": {
-            "token": "Token del lloc",
-            "soc_entity": "Entitat de SOC de la bateria",
-            "load_entity": "Sensor d'energia consumida per la casa",
-            "grid_entity": "Sensor d'energia de la xarxa (opcional)",
-            "grid_export_entity": "Sensor d'energia exportada a la xarxa (opcional)",
-            "solar_entity": "Sensor d'energia produïda pels panells (opcional)",
-            "zone": "Ubicació",
-            "inverter": "Control de l'inversor",
-            "inverter_prefix": "Prefix de les entitats de l'inversor",
-            "program_power": "Potència dels programes"
+            "token": "Token del lloc"
           },
           "data_description": {
-            "token": "Es mostra en crear el lloc a dom.oti.cat.",
-            "soc_entity": "Estat de càrrega en percentatge.",
-            "load_entity": "kWh totals que gasta la casa, sense comptar la càrrega de la bateria. El pla n'aprèn el patró horari dels darrers 14 dies.",
-            "grid_entity": "kWh totals que es prenen de la xarxa, perquè el gràfic del dia pugui mostrar el cost real de xarxa. Un comptador amb signe que es torna negatiu quan s'aboca a la xarxa també serveix.",
-            "grid_export_entity": "kWh totals que s'aboquen a la xarxa, si el comptador duu un registre d'exportació a part. Serveix per valorar les hores que han exportat.",
-            "solar_entity": "kWh totals produïts per les plaques. El gràfic del dia mostra aquesta producció mesurada a les hores ja passades; les hores futures continuen modelades.",
-            "zone": "Zona per a la previsió solar i la temperatura. Casa és la ubicació del mateix Home Assistant. Per fer servir un altre lloc, afegeix una zona a Configuració > Àrees, etiquetes i zones > Zones.",
-            "inverter_prefix": "Per a number.deye_program_1_soc és deye.",
-            "program_power": "Límit de potència de la bateria que s'escriu a cada programa horari."
+            "token": "Es mostra en crear el lloc a dom.oti.cat."
           },
           "sections": {
             "water_heaters": {
@@ -171,30 +119,12 @@
               "data": {
                 "heater_grid_entity": "Sensor de potència de xarxa (W)",
                 "heater_flow_entity": "Sensor de direcció del flux de xarxa",
-                "heater_consuming_state": "Valor de l'estat d'importació",
-                "heater_surplus_w": "Llindar d'excedent (W)",
-                "heater_max_import_w": "Importació màxima de xarxa (W)",
-                "heater_margin": "Marge anti-oscil·lació (W)",
-                "heater_min_elevation": "Elevació mínima del sol (°)",
-                "heater_min_azimuth": "Límit est de l'azimut (°)",
-                "heater_max_azimuth": "Límit oest de l'azimut (°)",
-                "heater_dry_days": "Dies sense excedent per recarregar",
-                "heater_export_min_kwh": "Excedent que compta com a exportació (kWh)",
-                "heater_cheap_price": "Preu barat durant una sequera (€/kWh)"
+                "heater_consuming_state": "Valor de l'estat d'importació"
               },
               "data_description": {
                 "heater_grid_entity": "Potència de xarxa en W, amb signe o amb el sensor de direcció de sota. Els escalfadors aprofiten l'excedent que mostra i s'aturen quan puja massa.",
                 "heater_flow_entity": "Entitat l'estat de la qual distingeix importació d'exportació, per a comptadors que no donen un valor amb signe.",
-                "heater_consuming_state": "Estat del sensor de flux que vol dir importar.",
-                "heater_surplus_w": "La xarxa es manté al voltant d'aquest valor mentre s'escalfa amb excedent. Normalment 100 W.",
-                "heater_max_import_w": "Sostre de la importació total de xarxa mentre s'escalfa amb xarxa barata, perquè no salti el magnetotèrmic. Poseu-lo una mica per sota de la potència contractada.",
-                "heater_margin": "Banda d'histèresi al voltant dels llindars, en W.",
-                "heater_min_elevation": "No escalfar amb excedent quan el sol és per sota d'aquest angle.",
-                "heater_min_azimuth": "No escalfar amb excedent mentre el sol és per sota d'això (ombra del matí). 90 = est.",
-                "heater_max_azimuth": "No escalfar amb excedent mentre el sol és per sobre d'això (ombra de la tarda). 270 = oest.",
-                "heater_dry_days": "Quan el lloc porta aquests dies sencers sense exportar excedent, els escalfadors probablement van curts: aleshores també poden escalfar de xarxa en hores barates. Amb 2 dobleguem les ~5 sequeres reals per any.",
-                "heater_export_min_kwh": "Un dia compta com a sec quan ha exportat menys d'això. Normalment 0,5.",
-                "heater_cheap_price": "Durant una sequera els escalfadors també poden escalfar de xarxa a aquest preu o menys. El termòstat limita l'energia, així que només costa uns quants kWh uns quants dies l'any."
+                "heater_consuming_state": "Estat del sensor de flux que vol dir importar."
               }
             },
             "heater_1": {

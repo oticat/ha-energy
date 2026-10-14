@@ -118,28 +118,20 @@ Each site is one place, and it can drive one inverter and its water heaters.
 
 ![Adding the integration](docs/ha-add-integration.png)
 
-### 3. Add your inverter and its sensors
+### 3. Add your inverter
 
-On the Oticat Energy entry, choose **Add inverter**. Everything here is about *this* Home
-Assistant: the token from your site, and the sensors the integration should read. Nothing here is
-sent anywhere except as described below.
+On the Oticat Energy entry, choose **Add inverter** and paste the **site token**. That is all this
+side needs: which sensors it reads is chosen on dom.oti.cat, from the list this integration
+reports, so the form does not ask about them.
 
 ![The Add inverter form](docs/ha-add-inverter.png)
 
-| Field | What it is |
-|-------|-------------|
-| **Site token** | The token from the site on dom.oti.cat |
-| **Battery SOC entity** | Your battery level in percent |
-| **House consumption energy sensor** | Total kWh the house uses, not counting battery charging. The plan learns your hourly pattern from its last 14 days |
-| **Grid energy sensor** (optional) | Total kWh taken from the grid. Used by the day chart on dom.oti.cat to show the real grid cost. A meter that goes negative while exporting is fine |
-| **Grid export energy sensor** (optional) | Total kWh sent to the grid, if your meter keeps a separate register. Those hours are paid at the surplus price |
-| **Solar production energy sensor** (optional) | Total kWh the panels make. The day chart shows what you really produced for the hours already past |
-| **Location** | The zone where the panels are, for the solar forecast and the temperature. The town is looked up automatically |
-| **Inverter control** | **Deye** to write the time-of-use programs, or **None** to only get the sensors |
-| **Inverter entity prefix** | For `number.deye_program_1_soc`, the prefix is `deye` |
-| **Program power** | The battery power limit written to every program |
-
 Add one inverter per site. Each becomes its own device, with its own sensors.
+
+Then go back to the site on dom.oti.cat and open **Site settings**. Every sensor it reads is there,
+each one in the block it belongs to — the battery SOC with the battery, the solar production and
+the location with the panels, the meters with the forecasts — and the lists come from what this
+integration reports. A change reaches Home Assistant on its next check-in, within fifteen minutes.
 
 ### 4. Set up the water heaters (optional)
 

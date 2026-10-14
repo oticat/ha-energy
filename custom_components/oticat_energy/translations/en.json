@@ -29,29 +29,12 @@
       "step": {
         "user": {
           "title": "Inverter",
-          "description": "Battery, solar panel and grid settings are made on dom.oti.cat, in Inverter automation. Each site there has its own token.",
+          "description": "Battery, solar panel and grid settings are made on dom.oti.cat, in Inverter automation, where each site has its own token and its sensors are chosen. This side only needs the token: which entities it reads arrives with the plan.",
           "data": {
-            "token": "Site token",
-            "soc_entity": "Battery SOC entity",
-            "load_entity": "House consumption energy sensor",
-            "grid_entity": "Grid energy sensor (optional)",
-            "grid_export_entity": "Grid export energy sensor (optional)",
-            "solar_entity": "Solar production energy sensor (optional)",
-            "zone": "Location",
-            "inverter": "Inverter control",
-            "inverter_prefix": "Inverter entity prefix",
-            "program_power": "Program power"
+            "token": "Site token"
           },
           "data_description": {
-            "token": "Shown when the site is created on dom.oti.cat.",
-            "soc_entity": "State of charge in percent.",
-            "load_entity": "Total kWh used by the house, not counting battery charging. The plan learns the hourly pattern from its last 14 days.",
-            "grid_entity": "Total kWh drawn from the grid, so the day chart can show the real grid cost. A signed meter that goes negative while exporting is fine.",
-            "grid_export_entity": "Total kWh fed to the grid, if the meter keeps a separate export register. Used to price the hours that exported.",
-            "solar_entity": "Total kWh produced by the panels. The day chart shows this measured production for the hours already past; future hours stay modelled.",
-            "zone": "Zone used for the solar forecast and temperature. Home is Home Assistant's own location. To use another place, add a zone in Settings > Areas, labels & zones > Zones.",
-            "inverter_prefix": "For number.deye_program_1_soc it is deye.",
-            "program_power": "Battery power limit written to every time-of-use program."
+            "token": "Shown when the site is created on dom.oti.cat."
           },
           "sections": {
             "water_heaters": {
@@ -59,30 +42,12 @@
               "data": {
                 "heater_grid_entity": "Grid power sensor (W)",
                 "heater_flow_entity": "Grid flow direction sensor",
-                "heater_consuming_state": "Importing state value",
-                "heater_surplus_w": "Surplus threshold (W)",
-                "heater_max_import_w": "Maximum grid import (W)",
-                "heater_margin": "Anti-flapping margin (W)",
-                "heater_min_elevation": "Minimum sun elevation (°)",
-                "heater_min_azimuth": "East azimuth boundary (°)",
-                "heater_max_azimuth": "West azimuth boundary (°)",
-                "heater_dry_days": "Days without surplus to top up",
-                "heater_export_min_kwh": "Surplus that counts as exporting (kWh)",
-                "heater_cheap_price": "Cheap price during a dry spell (€/kWh)"
+                "heater_consuming_state": "Importing state value"
               },
               "data_description": {
                 "heater_grid_entity": "Grid power in W, signed or with the direction sensor below. The heaters run on the surplus it shows, and stop when it climbs too high.",
                 "heater_flow_entity": "An entity whose state tells import from export, for meters that do not give a signed value.",
-                "heater_consuming_state": "State of the flow sensor that means importing.",
-                "heater_surplus_w": "The grid is kept around this value while heating on surplus. Usually 100 W.",
-                "heater_max_import_w": "Ceiling on total grid import while heating on cheap grid, so it never trips the breaker. Set it a little under the contracted power.",
-                "heater_margin": "Hysteresis band around the thresholds, in W.",
-                "heater_min_elevation": "Do not heat on surplus when the sun is below this angle.",
-                "heater_min_azimuth": "Do not heat on surplus while the sun is below this (morning shade). 90 = due east.",
-                "heater_max_azimuth": "Do not heat on surplus while the sun is above this (evening shade). 270 = due west.",
-                "heater_dry_days": "When the site has gone this many full days without exporting surplus, the heaters are probably running short: they may then also heat from the grid in the cheap hours. 2 doubles the roughly five real dry spells a year.",
-                "heater_export_min_kwh": "A day counts as dry when it exported less than this. Usually 0.5.",
-                "heater_cheap_price": "During a dry spell the heaters may also heat from the grid at or below this price. The thermostat caps the energy, so it only costs a few kWh a few days a year."
+                "heater_consuming_state": "State of the flow sensor that means importing."
               }
             },
             "heater_1": {
@@ -141,29 +106,12 @@
         },
         "reconfigure": {
           "title": "Inverter",
-          "description": "Battery, solar panel and grid settings are made on dom.oti.cat, in Inverter automation. Each site there has its own token.",
+          "description": "Battery, solar panel and grid settings are made on dom.oti.cat, in Inverter automation, where each site has its own token and its sensors are chosen. This side only needs the token: which entities it reads arrives with the plan.",
           "data": {
-            "token": "Site token",
-            "soc_entity": "Battery SOC entity",
-            "load_entity": "House consumption energy sensor",
-            "grid_entity": "Grid energy sensor (optional)",
-            "grid_export_entity": "Grid export energy sensor (optional)",
-            "solar_entity": "Solar production energy sensor (optional)",
-            "zone": "Location",
-            "inverter": "Inverter control",
-            "inverter_prefix": "Inverter entity prefix",
-            "program_power": "Program power"
+            "token": "Site token"
           },
           "data_description": {
-            "token": "Shown when the site is created on dom.oti.cat.",
-            "soc_entity": "State of charge in percent.",
-            "load_entity": "Total kWh used by the house, not counting battery charging. The plan learns the hourly pattern from its last 14 days.",
-            "grid_entity": "Total kWh drawn from the grid, so the day chart can show the real grid cost. A signed meter that goes negative while exporting is fine.",
-            "grid_export_entity": "Total kWh fed to the grid, if the meter keeps a separate export register. Used to price the hours that exported.",
-            "solar_entity": "Total kWh produced by the panels. The day chart shows this measured production for the hours already past; future hours stay modelled.",
-            "zone": "Zone used for the solar forecast and temperature. Home is Home Assistant's own location. To use another place, add a zone in Settings > Areas, labels & zones > Zones.",
-            "inverter_prefix": "For number.deye_program_1_soc it is deye.",
-            "program_power": "Battery power limit written to every time-of-use program."
+            "token": "Shown when the site is created on dom.oti.cat."
           },
           "sections": {
             "water_heaters": {
@@ -171,30 +119,12 @@
               "data": {
                 "heater_grid_entity": "Grid power sensor (W)",
                 "heater_flow_entity": "Grid flow direction sensor",
-                "heater_consuming_state": "Importing state value",
-                "heater_surplus_w": "Surplus threshold (W)",
-                "heater_max_import_w": "Maximum grid import (W)",
-                "heater_margin": "Anti-flapping margin (W)",
-                "heater_min_elevation": "Minimum sun elevation (°)",
-                "heater_min_azimuth": "East azimuth boundary (°)",
-                "heater_max_azimuth": "West azimuth boundary (°)",
-                "heater_dry_days": "Days without surplus to top up",
-                "heater_export_min_kwh": "Surplus that counts as exporting (kWh)",
-                "heater_cheap_price": "Cheap price during a dry spell (€/kWh)"
+                "heater_consuming_state": "Importing state value"
               },
               "data_description": {
                 "heater_grid_entity": "Grid power in W, signed or with the direction sensor below. The heaters run on the surplus it shows, and stop when it climbs too high.",
                 "heater_flow_entity": "An entity whose state tells import from export, for meters that do not give a signed value.",
-                "heater_consuming_state": "State of the flow sensor that means importing.",
-                "heater_surplus_w": "The grid is kept around this value while heating on surplus. Usually 100 W.",
-                "heater_max_import_w": "Ceiling on total grid import while heating on cheap grid, so it never trips the breaker. Set it a little under the contracted power.",
-                "heater_margin": "Hysteresis band around the thresholds, in W.",
-                "heater_min_elevation": "Do not heat on surplus when the sun is below this angle.",
-                "heater_min_azimuth": "Do not heat on surplus while the sun is below this (morning shade). 90 = due east.",
-                "heater_max_azimuth": "Do not heat on surplus while the sun is above this (evening shade). 270 = due west.",
-                "heater_dry_days": "When the site has gone this many full days without exporting surplus, the heaters are probably running short: they may then also heat from the grid in the cheap hours. 2 doubles the roughly five real dry spells a year.",
-                "heater_export_min_kwh": "A day counts as dry when it exported less than this. Usually 0.5.",
-                "heater_cheap_price": "During a dry spell the heaters may also heat from the grid at or below this price. The thermostat caps the energy, so it only costs a few kWh a few days a year."
+                "heater_consuming_state": "State of the flow sensor that means importing."
               }
             },
             "heater_1": {

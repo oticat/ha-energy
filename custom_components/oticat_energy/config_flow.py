@@ -26,46 +26,22 @@ from homeassistant.data_entry_flow import section
 from homeassistant.helpers import selector
 
 from .const import (
-    CONF_GRID_ENTITY,
-    CONF_GRID_EXPORT_ENTITY,
-    CONF_HEATER_CHEAP_PRICE,
     CONF_HEATER_CONSUMING_STATE,
-    CONF_HEATER_DRY_DAYS,
-    CONF_HEATER_EXPORT_MIN_KWH,
     CONF_HEATER_FLOW_ENTITY,
     CONF_HEATER_GRID_ENTITY,
-    CONF_HEATER_MARGIN,
-    CONF_HEATER_MAX_AZIMUTH,
-    CONF_HEATER_MAX_IMPORT_W,
-    CONF_HEATER_MIN_AZIMUTH,
-    CONF_HEATER_MIN_ELEVATION,
-    CONF_HEATER_SURPLUS_W,
     CONF_INVERTER,
     CONF_INVERTER_PREFIX,
-    CONF_LOAD_ENTITY,
-    CONF_PROGRAM_POWER,
-    CONF_SOLAR_ENTITY,
     CONF_SITE_ID,
     CONF_SOC_ENTITY,
     CONF_TOKEN,
     CONF_URL,
     CONF_ZONE,
-    DEFAULT_HEATER_CHEAP_PRICE,
     DEFAULT_HEATER_CONSUMING_STATE,
-    DEFAULT_HEATER_DRY_DAYS,
-    DEFAULT_HEATER_EXPORT_MIN_KWH,
     DEFAULT_HEATER_HVAC_MODE,
-    DEFAULT_HEATER_MARGIN,
-    DEFAULT_HEATER_MAX_AZIMUTH,
-    DEFAULT_HEATER_MAX_IMPORT_W,
-    DEFAULT_HEATER_MIN_AZIMUTH,
-    DEFAULT_HEATER_MIN_ELEVATION,
-    DEFAULT_HEATER_SURPLUS_W,
     DEFAULT_URL,
     DEFAULT_ZONE,
     DOMAIN,
     INVERTER_DEYE,
-    INVERTER_NONE,
     MAX_HEATERS,
     SUBENTRY_INVERTER,
     heater_key,
@@ -84,35 +60,15 @@ def _watts(minimum: float, maximum: float, step: float) -> selector.NumberSelect
     )
 
 
-def _degrees(minimum: float, maximum: float) -> selector.NumberSelector:
-    return selector.NumberSelector(
-        selector.NumberSelectorConfig(
-            min=minimum, max=maximum, step=1, unit_of_measurement="°", mode=selector.NumberSelectorMode.BOX
-        )
-    )
-
-
-def _kwh(minimum: float, maximum: float, step: float) -> selector.NumberSelector:
-    return selector.NumberSelector(
-        selector.NumberSelectorConfig(
-            min=minimum, max=maximum, step=step, unit_of_measurement="kWh", mode=selector.NumberSelectorMode.BOX
-        )
-    )
-
-
-def _price(minimum: float, maximum: float, step: float) -> selector.NumberSelector:
-    return selector.NumberSelector(
-        selector.NumberSelectorConfig(
-            min=minimum, max=maximum, step=step, unit_of_measurement="€/kWh", mode=selector.NumberSelectorMode.BOX
-        )
-    )
-
-
 def _heater_sections(d: dict[str, Any]) -> dict[Any, Any]:
-    """The collapsible water-heater sections: shared settings plus one section per heater slot.
+    """The collapsible water-heater sections: shared entities plus one section per heater slot.
 
     Every field is optional. Leave the heater slots empty to keep the integration inverter-only.
     Priority is the slot order: heater 1 runs before heater 2, and so on.
+
+    Only what is local to this house is here. The thresholds the controller runs on — the surplus,
+    the import ceiling, the sun window, the dry-spell limits — are the site's energy policy and are
+    set on dom.oti.cat, arriving with each plan.
     """
     shared = {
         vol.Optional(
@@ -124,33 +80,6 @@ def _heater_sections(d: dict[str, Any]) -> dict[Any, Any]:
         vol.Optional(
             CONF_HEATER_CONSUMING_STATE, default=d.get(CONF_HEATER_CONSUMING_STATE, DEFAULT_HEATER_CONSUMING_STATE)
         ): str,
-        vol.Optional(
-            CONF_HEATER_SURPLUS_W, default=d.get(CONF_HEATER_SURPLUS_W, DEFAULT_HEATER_SURPLUS_W)
-        ): _watts(0, 1000, 50),
-        vol.Optional(
-            CONF_HEATER_MAX_IMPORT_W, default=d.get(CONF_HEATER_MAX_IMPORT_W, DEFAULT_HEATER_MAX_IMPORT_W)
-        ): _watts(500, 15000, 100),
-        vol.Optional(CONF_HEATER_MARGIN, default=d.get(CONF_HEATER_MARGIN, DEFAULT_HEATER_MARGIN)): _watts(0, 500, 10),
-        vol.Optional(
-            CONF_HEATER_MIN_ELEVATION, default=d.get(CONF_HEATER_MIN_ELEVATION, DEFAULT_HEATER_MIN_ELEVATION)
-        ): _degrees(0, 45),
-        vol.Optional(
-            CONF_HEATER_MIN_AZIMUTH, default=d.get(CONF_HEATER_MIN_AZIMUTH, DEFAULT_HEATER_MIN_AZIMUTH)
-        ): _degrees(0, 179),
-        vol.Optional(
-            CONF_HEATER_MAX_AZIMUTH, default=d.get(CONF_HEATER_MAX_AZIMUTH, DEFAULT_HEATER_MAX_AZIMUTH)
-        ): _degrees(181, 360),
-        vol.Optional(
-            CONF_HEATER_DRY_DAYS, default=d.get(CONF_HEATER_DRY_DAYS, DEFAULT_HEATER_DRY_DAYS)
-        ): selector.NumberSelector(
-            selector.NumberSelectorConfig(min=1, max=10, step=1, mode=selector.NumberSelectorMode.BOX)
-        ),
-        vol.Optional(
-            CONF_HEATER_EXPORT_MIN_KWH, default=d.get(CONF_HEATER_EXPORT_MIN_KWH, DEFAULT_HEATER_EXPORT_MIN_KWH)
-        ): _kwh(0, 50, 0.1),
-        vol.Optional(
-            CONF_HEATER_CHEAP_PRICE, default=d.get(CONF_HEATER_CHEAP_PRICE, DEFAULT_HEATER_CHEAP_PRICE)
-        ): _price(0, 1, 0.005),
     }
     out: dict[Any, Any] = {vol.Optional(SECTION_WATER_HEATERS): section(vol.Schema(shared), {"collapsed": True})}
     for i in range(1, MAX_HEATERS + 1):
@@ -174,36 +103,15 @@ def _heater_sections(d: dict[str, Any]) -> dict[Any, Any]:
 
 
 def _inverter_schema(d: dict[str, Any]) -> vol.Schema:
-    # Only the token is required: the site's entities are chosen on dom.oti.cat, from the list
-    # this side reports, and arrive with the plan. They can still be set here, which is what a
-    # site that predates that uses, and what the service falls back to when it sends nothing.
+    """The site's token, and what is local to this house.
+
+    Which sensors the site reads, the inverter control, its prefix and the program power are set on
+    dom.oti.cat, from the list this side reports, and arrive with the plan — so they are not asked
+    here. The keys still live in the subentry, written by the integration as the service sends
+    them, which is also what a site that predates the service owning them keeps working on.
+    """
     return vol.Schema({
         vol.Required(CONF_TOKEN, default=d.get(CONF_TOKEN, "")): str,
-        vol.Optional(CONF_SOC_ENTITY, description={"suggested_value": d.get(CONF_SOC_ENTITY)}): selector.EntitySelector(
-            selector.EntitySelectorConfig(domain=["sensor", "input_number", "number"])
-        ),
-        vol.Optional(CONF_LOAD_ENTITY, description={"suggested_value": d.get(CONF_LOAD_ENTITY)}): selector.EntitySelector(
-            selector.EntitySelectorConfig(domain="sensor", device_class="energy")
-        ),
-        vol.Optional(CONF_GRID_ENTITY, description={"suggested_value": d.get(CONF_GRID_ENTITY)}): selector.EntitySelector(
-            selector.EntitySelectorConfig(domain="sensor", device_class="energy")
-        ),
-        vol.Optional(CONF_GRID_EXPORT_ENTITY, description={"suggested_value": d.get(CONF_GRID_EXPORT_ENTITY)}): selector.EntitySelector(
-            selector.EntitySelectorConfig(domain="sensor", device_class="energy")
-        ),
-        vol.Optional(CONF_SOLAR_ENTITY, description={"suggested_value": d.get(CONF_SOLAR_ENTITY)}): selector.EntitySelector(
-            selector.EntitySelectorConfig(domain="sensor", device_class="energy")
-        ),
-        vol.Optional(CONF_ZONE, default=d.get(CONF_ZONE, DEFAULT_ZONE)): selector.EntitySelector(
-            selector.EntitySelectorConfig(domain="zone")
-        ),
-        vol.Optional(CONF_INVERTER, default=d.get(CONF_INVERTER, INVERTER_DEYE)): selector.SelectSelector(
-            selector.SelectSelectorConfig(options=[INVERTER_DEYE, INVERTER_NONE], translation_key="inverter")
-        ),
-        vol.Optional(CONF_INVERTER_PREFIX, default=d.get(CONF_INVERTER_PREFIX, "deye")): str,
-        vol.Optional(CONF_PROGRAM_POWER, default=d.get(CONF_PROGRAM_POWER, 5000)): selector.NumberSelector(
-            selector.NumberSelectorConfig(min=0, max=12000, step=100, unit_of_measurement="W", mode=selector.NumberSelectorMode.BOX)
-        ),
         **_heater_sections(d),
     })
 
@@ -321,8 +229,11 @@ class InverterSubentryFlow(ConfigSubentryFlow):
             if error is None and site.get("id") != subentry.data.get(CONF_SITE_ID):
                 error = "different_site"
             if error is None:
+                # The subentry also holds what the service sent — the entities it reads and drives — and
+                # this form does not know about them, so they are carried over rather than dropped.
                 return self.async_update_and_abort(
-                    entry, subentry, data={**flat, CONF_SITE_ID: site["id"]}, title=site.get("name") or subentry.title
+                    entry, subentry, data={**subentry.data, **flat, CONF_SITE_ID: site["id"]},
+                    title=site.get("name") or subentry.title,
                 )
             errors["base"] = error
         return self.async_show_form(step_id="reconfigure", data_schema=_inverter_schema(flat), errors=errors)

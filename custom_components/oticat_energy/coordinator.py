@@ -414,20 +414,29 @@ class EnergyCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         dom is the source of truth, so a new configuration is applied as it arrives. A failure
         leaves the previous one in place and is reported back with the next plan.
         """
-        if not isinstance(config, dict) or config == self.applied:
+        if isinstance(config, dict) and config != self.applied:
+            previous = self.applied
+            try:
+                self.applied = config
+                self.apply_error = None
+                self._apply_config()
+                self._apply_entities(config.get("entities"))
+            except Exception as err:  # noqa: BLE001 - a bad configuration must not stop planning
+                self.applied = previous
+                self.apply_error = str(err)
+                _LOGGER.warning("Applying the site configuration failed: %s", err)
+                return
+            await self._store.async_save({"config": config})
             return
-        previous = self.applied
+        # The entities are checked even when nothing has changed: reconfiguring the inverter in
+        # Home Assistant, or a hand edit, can drop what we wrote into the subentry, and the site
+        # would then read nothing while believing it is up to date.
         try:
-            self.applied = config
+            self._apply_entities((self.applied or {}).get("entities"))
             self.apply_error = None
-            self._apply_config()
-            self._apply_entities(config.get("entities"))
-        except Exception as err:  # noqa: BLE001 - a bad configuration must not stop planning
-            self.applied = previous
+        except Exception as err:  # noqa: BLE001 - a bad entity must not stop planning
             self.apply_error = str(err)
-            _LOGGER.warning("Applying the site configuration failed: %s", err)
-            return
-        await self._store.async_save({"config": config})
+            _LOGGER.warning("Applying the site entities failed: %s", err)
 
     def view(self) -> dict[str, Any]:
         """What applies now, from the last plan, or self-consumption once it has run out."""
