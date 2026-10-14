@@ -224,8 +224,12 @@ class EnergyCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                 if not isinstance(value, str) or not value or len(value) > 40:
                     return f"{value} is not a state name"
             elif conf_key in HEATER_ENTITY_KEYS:
-                if self.hass.states.get(value) is None:
+                if not isinstance(value, str) or self.hass.states.get(value) is None:
                     return f"{value} does not exist"
+            elif conf_key.startswith("heater_"):
+                # A device's rated power and its HVAC mode are values, not entity ids: there is
+                # nothing here to look up, and a wrong type is dropped when the device is built.
+                continue
             elif conf_key == CONF_INVERTER:
                 if value not in (INVERTER_DEYE, INVERTER_NONE):
                     return f"{value} is not an inverter control"
