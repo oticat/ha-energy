@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import Platform
-from homeassistant.core import HomeAssistant
+from homeassistant.core import HomeAssistant, callback
 
 from .const import SUBENTRY_INVERTER
 from .coordinator import EnergyCoordinator
@@ -35,8 +35,16 @@ async def async_setup_entry(hass: HomeAssistant, entry: EnergyConfigEntry) -> bo
     return True
 
 
-async def _reload(hass: HomeAssistant, entry: EnergyConfigEntry) -> None:
-    await hass.config_entries.async_reload(entry.entry_id)
+@callback
+def _reload(hass: HomeAssistant, entry: EnergyConfigEntry) -> None:
+    """Reload in a task of its own.
+
+    The integration changes its own subentries — the entities come from dom.oti.cat and are
+    written here as they arrive — and that happens in the middle of an update. Home Assistant's
+    own advice is to schedule the reload rather than await it from inside the integration, which
+    is what lets an entity change take effect at once instead of at the next restart.
+    """
+    hass.config_entries.async_schedule_reload(entry.entry_id)
 
 
 async def async_unload_entry(hass: HomeAssistant, entry: EnergyConfigEntry) -> bool:
