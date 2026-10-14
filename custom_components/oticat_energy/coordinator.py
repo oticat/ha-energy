@@ -8,6 +8,7 @@ from __future__ import annotations
 
 from datetime import datetime, timedelta
 import logging
+import re
 from typing import Any
 
 import aiohttp
@@ -41,6 +42,7 @@ from .const import (
     DOMAIN,
     HISTORY_DAYS,
     INVERTER_DEYE,
+    INVERTER_NONE,
     PLAN_PATH,
 )
 from .catalogue import build_catalogue
@@ -193,7 +195,67 @@ class EnergyCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             out["heaters"] = applied["heaters"]
         if isinstance(applied.get("program_power"), (int, float)):
             out["program_power"] = applied["program_power"]
+        if isinstance(applied.get("entities"), dict):
+            out["entities"] = applied["entities"]
         return out
+
+    def _entity_problem(self, changed: dict[str, Any]) -> str | None:
+        """Which of the entities the service sent this Home Assistant cannot accept, or None.
+
+        An entity that does not exist is almost always a rename here that the site has not caught
+        up with, so the whole change is refused rather than half applied, and the error travels
+        back in `applied` for the settings page to show.
+        """
+        for conf_key, value in changed.items():
+            if conf_key == CONF_INVERTER:
+                if value not in (INVERTER_DEYE, INVERTER_NONE):
+                    return f"{value} is not an inverter control"
+            elif conf_key == CONF_INVERTER_PREFIX:
+                if not re.fullmatch(r"[a-z0-9_]{1,40}", str(value)):
+                    return f"{value} is not an inverter prefix"
+            elif self.hass.states.get(value) is None:
+                return f"{value} does not exist"
+        # A Deye needs its programs to write to.
+        inverter = (self.subentry.data or {}).get(CONF_INVERTER)
+        inverter = changed.get(CONF_INVERTER, inverter)
+        if inverter == INVERTER_DEYE:
+            prefix = changed.get(CONF_INVERTER_PREFIX) or (self.subentry.data or {}).get(CONF_INVERTER_PREFIX)
+            if not any(self.hass.states.get(f"{d}.{prefix}_program_1_soc") for d in ("number", "input_number")):
+                return f"{prefix}_program_1_soc does not exist"
+        return None
+
+    def _apply_entities(self, entities: Any) -> None:
+        """Write the entities the service sent into the subentry, which is where HA keeps them.
+
+        Everything else is applied in place; the entities cannot be, because the sensors, the
+        writer and the controller are all built from them when the entry is set up. Updating the
+        subentry reloads the entry, which rebuilds them from the new choices.
+        """
+        if not isinstance(entities, dict) or not entities:
+            return
+        wanted: dict[str, Any] = {}
+        for conf_key, value in (
+            (CONF_SOC_ENTITY, entities.get("soc")),
+            (CONF_LOAD_ENTITY, entities.get("load")),
+            (CONF_GRID_ENTITY, entities.get("grid")),
+            (CONF_GRID_EXPORT_ENTITY, entities.get("grid_export")),
+            (CONF_SOLAR_ENTITY, entities.get("solar")),
+            (CONF_ZONE, entities.get("zone")),
+            (CONF_INVERTER, entities.get("inverter")),
+            (CONF_INVERTER_PREFIX, entities.get("inverter_prefix")),
+        ):
+            if isinstance(value, str) and value:
+                wanted[conf_key] = value
+        changed = {k: v for k, v in wanted.items() if self.subentry.data.get(k) != v}
+        if not changed:
+            return
+        problem = self._entity_problem(changed)
+        if problem:
+            raise ValueError(problem)
+        _LOGGER.info("Applying the site entities from dom.oti.cat: %s", ", ".join(sorted(changed)))
+        self.hass.config_entries.async_update_subentry(
+            self.config_entry, self.subentry, data={**self.subentry.data, **changed}, title=self.subentry.title
+        )
 
     @callback
     def _apply_config(self) -> None:
@@ -266,10 +328,12 @@ class EnergyCoordinator(DataUpdateCoordinator[dict[str, Any]]):
 
     async def _async_update_data(self) -> dict[str, Any]:
         conf = self.conf
-        soc = read_soc(self.hass, conf[CONF_SOC_ENTITY])
+        soc = read_soc(self.hass, conf.get(CONF_SOC_ENTITY, ""))
         if soc is None:
-            self.error = f"{conf[CONF_SOC_ENTITY]} has no value"
-            return self.view()
+            # No SOC means no plan, but not no request: the configuration and the catalogue are
+            # still worth having. A fresh site has no sensors picked yet, and a battery sensor
+            # that is down must not leave the site stuck on an old configuration.
+            self.error = f"{conf.get(CONF_SOC_ENTITY) or 'the SOC entity'} has no value"
         # Each measured sensor becomes an hourly history: consumption, grid import, grid export
         # and solar production. A recorder problem keeps the last copy and must not stop planning.
         wanted = {
@@ -289,7 +353,9 @@ class EnergyCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         where = location(self.hass, conf.get(CONF_ZONE))
         body = {
             "location": where,
-            "state": {"soc": soc},
+            # Without a SOC the service answers with the configuration only, which is what a site
+            # needs before it has a sensor to read.
+            "state": {} if soc is None else {"soc": soc},
             **histories,
             "entities": entities(conf),
             # What this side is running, so the service can tell what is in sync from what is
@@ -305,12 +371,16 @@ class EnergyCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         if sent_catalogue:
             body["catalogue"] = build_catalogue(self.hass)
         try:
-            self.plan = await request_plan(self.hass, conf, body)
-            self.error = None if "zone" in where else f"{conf.get(CONF_ZONE) or DEFAULT_ZONE} not found, using Home Assistant's location"
-            await self._take_config(self.plan.get("config") if isinstance(self.plan, dict) else None)
+            answer = await request_plan(self.hass, conf, body)
+            # An answer with no hours is a configuration, not a plan: keep covering now with the
+            # plan we already had.
+            if answer.get("hours"):
+                self.plan = answer
+                self.error = None if "zone" in where else f"{conf.get(CONF_ZONE) or DEFAULT_ZONE} not found, using Home Assistant's location"
+            await self._take_config(answer.get("config"))
             # The service asks until it has one; once it stops, the copy that just went out was
             # good enough and there is no reason to keep sending it.
-            if isinstance(self.plan, dict) and self.plan.get("want_catalogue"):
+            if answer.get("want_catalogue"):
                 if not self._send_catalogue:
                     self._send_catalogue = True
                     # The catalogue rides on the next request. Asking is usually the settings page
@@ -339,6 +409,7 @@ class EnergyCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             self.applied = config
             self.apply_error = None
             self._apply_config()
+            self._apply_entities(config.get("entities"))
         except Exception as err:  # noqa: BLE001 - a bad configuration must not stop planning
             self.applied = previous
             self.apply_error = str(err)
