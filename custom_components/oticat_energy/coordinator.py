@@ -43,6 +43,7 @@ from .const import (
     INVERTER_DEYE,
     PLAN_PATH,
 )
+from .catalogue import build_catalogue
 from .inverter import DeyeWriter
 from .heater import HeaterController
 
@@ -158,6 +159,9 @@ class EnergyCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         self._store = Store(hass, APPLIED_STORE_VERSION, f"{DOMAIN}.{subentry.subentry_id}")
         self.applied: dict[str, Any] | None = None
         self.apply_error: str | None = None
+        # Set when the service asks for the entities it can offer, and kept until it stops
+        # asking, which is how the settings page fills its pickers on a private Home Assistant.
+        self._send_catalogue = False
         conf = self.conf
         self.writer: DeyeWriter | None = None
         if conf.get(CONF_INVERTER) == INVERTER_DEYE:
@@ -297,10 +301,19 @@ class EnergyCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             },
             "client": {"integration": self._version, "ha": HA_VERSION},
         }
+        sent_catalogue = self._send_catalogue
+        if sent_catalogue:
+            body["catalogue"] = build_catalogue(self.hass)
         try:
             self.plan = await request_plan(self.hass, conf, body)
             self.error = None if "zone" in where else f"{conf.get(CONF_ZONE) or DEFAULT_ZONE} not found, using Home Assistant's location"
             await self._take_config(self.plan.get("config") if isinstance(self.plan, dict) else None)
+            # The service asks until it has one; once it stops, the copy that just went out was
+            # good enough and there is no reason to keep sending it.
+            if isinstance(self.plan, dict) and self.plan.get("want_catalogue"):
+                self._send_catalogue = True
+            elif sent_catalogue:
+                self._send_catalogue = False
         except PlanRequestError as err:
             # Keep the last plan: it covers until its horizon_end, usually the end of tomorrow.
             self.error = str(err)
