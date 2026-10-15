@@ -87,6 +87,9 @@ class HeaterConfig:
     min_elevation: float
     min_azimuth: float
     max_azimuth: float
+    # The site's on/off switch for this block, which Home Assistant also shows as an entity. Off is
+    # a pause: the controller turns off what it was running and then leaves the devices alone.
+    enabled: bool = True
     # Dry-spell top-up: after this many full days without exporting surplus, the heaters may
     # also heat from the grid in hours at or below cheap_price (the always-cheap hours come
     # from the service's preheat flag).
@@ -267,8 +270,12 @@ def config_from(conf: dict[str, Any], applied: dict[str, Any] | None = None) -> 
     if not heaters:
         return None
     t = thresholds(conf, applied)
+    # The switch is on unless the service has said otherwise. It lives in the applied configuration
+    # (and its store), so an unreachable service leaves the site doing what it was doing.
+    raw_enabled = (applied or {}).get("enabled")
     return HeaterConfig(
         heaters=heaters,
+        enabled=raw_enabled if isinstance(raw_enabled, bool) else True,
         grid_entity=grid_entity,
         flow_entity=_sent(applied, "flow_entity") or conf.get(CONF_HEATER_FLOW_ENTITY) or None,
         consuming=_sent(applied, "consuming_state") or conf.get(CONF_HEATER_CONSUMING_STATE) or DEFAULT_HEATER_CONSUMING_STATE,
@@ -308,7 +315,13 @@ class HeaterController:
         self.hass = hass
         self.coordinator = coordinator
         self.config = config_from(coordinator.conf, coordinator.applied_heaters())
-        self.status = "idle"
+        # Whether a switch-off has already let the devices go, and whether the controller has had a
+        # say at all since it started. A restart while the control is off must not switch off what
+        # the household turned on by hand, and it cannot tell that apart from a switch flipped while
+        # it was running, so it waits for the first pass that actually drives something.
+        self._disabled = False
+        self._evaluated = False
+        self.status = "disabled" if self.config is not None and not self.config.enabled else "idle"
         self.devices: list[_HeaterView] = []
         self.days_without_export = 0
         self.price: float | None = None
@@ -321,6 +334,11 @@ class HeaterController:
     @property
     def active(self) -> bool:
         return self.config is not None
+
+    @property
+    def enabled(self) -> bool:
+        """Whether the controller is driving the devices, as the switch shows it."""
+        return bool(self.config.enabled) if self.config is not None else False
 
     @callback
     def refresh_config(self) -> None:
@@ -513,6 +531,11 @@ class HeaterController:
     async def _apply(self) -> None:
         config = self.config
         assert config is not None
+        if not config.enabled:
+            await self._release(config)
+            return
+        self._disabled = False
+        self._evaluated = True
         snapshot = await self._snapshot(config)
         want = decide(config, snapshot)
         changed: list[str] = []
@@ -530,6 +553,28 @@ class HeaterController:
         self.status = "; ".join(changed) if changed else "idle"
         if changed:
             _LOGGER.debug("Water heaters: %s", self.status)
+
+    async def _release(self, config: HeaterConfig) -> None:
+        """The switch is off: let the devices go, switching off what was running, once.
+
+        Turning them off once is the whole job — after that they belong to the household again, so
+        a device switched on by hand while the control is paused stays on. The views are still
+        refreshed so the Water heaters sensor keeps telling the truth.
+        """
+        changed: list[str] = []
+        devices: list[_HeaterView] = []
+        for heater in config.heaters:
+            is_on = _is_on(self.hass.states.get(heater.entity), heater.is_climate)
+            if self._evaluated and not self._disabled and is_on and not self._unavailable(heater.entity):
+                await self._set(heater, False)
+                is_on = False
+                changed.append(f"{heater.entity} off")
+            devices.append(_HeaterView(entity=heater.entity, power=heater.power, on=is_on, want=False))
+        self._disabled = True
+        if devices != self.devices:
+            self.devices = devices
+            self._notify()
+        self.status = "disabled" + (f": {'; '.join(changed)}" if changed else "")
 
     async def _set(self, heater: Heater, on: bool) -> None:
         if heater.is_climate:

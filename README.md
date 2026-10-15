@@ -178,6 +178,7 @@ same wherever you open them and there is only one place to change them.
 | **Daily consumption** | A rough daily figure, used until there is a full week of real history |
 | **Solar / Consumption margin** | How cautious to be: the solar forecast is cut and consumption raised by this much |
 | **Program power** | The battery power limit written to every program |
+| **Control active** | The switch Home Assistant also shows, and can flip: with it off the devices stay chosen, the controller stops deciding and switches off whatever it was running |
 | **Heat from the grid up to / Max buy price** | Which hours may heat the devices from the grid, surplus or not. On a fixed tariff you name a period; on PVPC, a price (0.01 €/kWh by default, which means only genuine surplus) |
 | **Surplus threshold** | The grid is kept around this value while heating on surplus. Usually 100 W |
 | **Maximum grid import** | The ceiling on total grid import while heating on cheap grid. Set it a little under your contracted power, so it never trips the breaker |
@@ -202,6 +203,7 @@ For each inverter (device named after the site):
 | **Grid charging** | On while the plan charges the battery from the grid |
 | **Cheap-grid preheat** | On in the hours whose price is at or below the "free energy" limit. Handy to automate other cheap-grid loads |
 | **Water heaters** | Only when heaters are set up: how many are running, and each one's state, plus how many days it has been since the site exported surplus |
+| **High-consumption devices** | Only when heaters are set up: the switch that turns the control on and off. Off pauses it — the devices stay chosen, anything running is switched off and the controller stops deciding. It can be flipped here or on dom.oti.cat |
 | **Expected savings** | What the plan saves compared with plain self-consumption, counting the energy left in the battery |
 | **Planned grid cost** | What the plan spends on grid energy until it ends |
 

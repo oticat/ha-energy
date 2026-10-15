@@ -13,7 +13,7 @@ from homeassistant.core import HomeAssistant
 from .const import SUBENTRY_INVERTER
 from .coordinator import EnergyCoordinator
 
-PLATFORMS = [Platform.SENSOR, Platform.BINARY_SENSOR]
+PLATFORMS = [Platform.SENSOR, Platform.BINARY_SENSOR, Platform.SWITCH]
 
 type EnergyConfigEntry = ConfigEntry[dict[str, EnergyCoordinator]]
 

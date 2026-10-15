@@ -99,6 +99,11 @@
       "preheat": {
         "name": "Preescalfament amb xarxa barata"
       }
+    },
+    "switch": {
+      "high_consumption": {
+        "name": "Aparells de consum elevat"
+      }
     }
   }
 }

@@ -172,6 +172,9 @@ class EnergyCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         self._store = Store(hass, APPLIED_STORE_VERSION, f"{DOMAIN}.{subentry.subentry_id}")
         self.applied: dict[str, Any] | None = None
         self.apply_error: str | None = None
+        # A high-consumption switch flip that has not reached the service yet, so the switch shows
+        # what was asked for instead of snapping back until the next plan answers.
+        self._heaters_switch: bool | None = None
         # Set when the service asks for the entities it can offer, and kept until it stops
         # asking, which is how the settings page fills its pickers on a private Home Assistant.
         self._send_catalogue = False
@@ -192,6 +195,24 @@ class EnergyCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         """The device thresholds the service last sent, or None when it has not sent any."""
         heaters = (self.applied or {}).get("heaters")
         return heaters if isinstance(heaters, dict) else None
+
+    @property
+    def heaters_enabled(self) -> bool:
+        """What the high-consumption switch shows: the site's setting, or one not yet confirmed."""
+        if self._heaters_switch is not None:
+            return self._heaters_switch
+        return self.heater.enabled
+
+    async def async_set_heaters_enabled(self, enabled: bool) -> None:
+        """The high-consumption switch was flipped here.
+
+        dom.oti.cat owns the setting, so the change travels with the next plan request, and the
+        switch shows what was asked for until the answer comes back with it stored. It is the one
+        setting that goes the other way; everything else the integration only reports.
+        """
+        self._heaters_switch = enabled
+        self.async_update_listeners()
+        await self.async_request_refresh()
 
     def applied_config(self) -> dict[str, Any]:
         """The part of the configuration this side is running, echoed with each plan.
@@ -425,6 +446,11 @@ class EnergyCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         # named it — otherwise a site that chose its devices here would stop driving them.
         if conf.get(CONF_HEATER_GRID_ENTITY):
             body["legacy"] = {"heaters": subentry_heaters(conf)}
+        # The high-consumption switch, when it has been flipped here and not yet confirmed. dom
+        # owns the setting and stores it with the rest of the configuration, which then comes back
+        # in `config`; the switch is on unless this says otherwise.
+        if self._heaters_switch is not None:
+            body["heaters_enabled"] = self._heaters_switch
 
         sent_catalogue = self._send_catalogue
         if sent_catalogue:
@@ -461,6 +487,9 @@ class EnergyCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         dom is the source of truth, so a new configuration is applied as it arrives. A failure
         leaves the previous one in place and is reported back with the next plan.
         """
+        # Any answer settles the switch: whatever it asked for is what the service holds now, so
+        # from here the configuration's own value is what shows.
+        self._heaters_switch = None
         if isinstance(config, dict) and config != self.applied:
             previous = self.applied
             try:
