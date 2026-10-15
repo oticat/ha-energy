@@ -547,10 +547,13 @@ class HeaterController:
                 changed.append(f"{heater.entity} {'on' if should else 'off'}")
                 is_on = should
             devices.append(_HeaterView(entity=heater.entity, power=heater.power, on=is_on, want=should))
-        if devices != self.devices:
+        # The status is set before the listeners are written, so what they report is this pass and
+        # not the one before it, and a pass that only changes the status is written too.
+        previous = self.status
+        self.status = "; ".join(changed) if changed else "idle"
+        if devices != self.devices or self.status != previous:
             self.devices = devices
             self._notify()
-        self.status = "; ".join(changed) if changed else "idle"
         if changed:
             _LOGGER.debug("Water heaters: %s", self.status)
 
@@ -570,11 +573,12 @@ class HeaterController:
                 is_on = False
                 changed.append(f"{heater.entity} off")
             devices.append(_HeaterView(entity=heater.entity, power=heater.power, on=is_on, want=False))
+        previous = self.status
         self._disabled = True
-        if devices != self.devices:
+        self.status = "disabled" + (f": {'; '.join(changed)}" if changed else "")
+        if devices != self.devices or self.status != previous:
             self.devices = devices
             self._notify()
-        self.status = "disabled" + (f": {'; '.join(changed)}" if changed else "")
 
     async def _set(self, heater: Heater, on: bool) -> None:
         if heater.is_climate:
