@@ -90,6 +90,12 @@
       },
       "heaters": {
         "name": "Water heaters"
+      },
+      "days_without_export": {
+        "name": "Days without surplus"
+      },
+      "cheap_hours": {
+        "name": "Cheap grid hours"
       }
     },
     "binary_sensor": {
@@ -98,6 +104,9 @@
       },
       "preheat": {
         "name": "Cheap-grid preheat"
+      },
+      "cheap_grid": {
+        "name": "Heating on cheap grid"
       }
     },
     "switch": {

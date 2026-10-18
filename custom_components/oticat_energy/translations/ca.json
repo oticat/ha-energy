@@ -90,6 +90,12 @@
       },
       "heaters": {
         "name": "Escalfadors d'aigua"
+      },
+      "days_without_export": {
+        "name": "Dies sense excedent"
+      },
+      "cheap_hours": {
+        "name": "Hores de xarxa barata"
       }
     },
     "binary_sensor": {
@@ -98,6 +104,9 @@
       },
       "preheat": {
         "name": "Preescalfament amb xarxa barata"
+      },
+      "cheap_grid": {
+        "name": "Escalfament amb xarxa barata"
       }
     },
     "switch": {

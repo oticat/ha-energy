@@ -325,6 +325,12 @@ class HeaterController:
         self.devices: list[_HeaterView] = []
         self.days_without_export = 0
         self.price: float | None = None
+        # Where the cheap-grid permission comes from, kept apart so the sensors can say it and an
+        # automation can tell "the sun has not exported for days" from "the plan says cheap hour".
+        # Reacting to cheap_grid instead of preheat is what makes the dry spell notifiable.
+        self.preheat_flag = False
+        self.dry_spell = False
+        self.cheap_grid = False
         self._dry_cache: tuple[float, int] | None = None
         self._unsubs: list[Any] = []
         self._listeners: list[Any] = []
@@ -516,15 +522,22 @@ class HeaterController:
             and self.price is not None
             and self.price <= config.cheap_price
         )
+        self.preheat_flag = always
+        self.dry_spell = cheap
+        self.cheap_grid = always or cheap
         return Snapshot(
             grid_power=self._grid_power(config),
             sun_elevation=_float_attr(self.hass, "sun.sun", "elevation", -90.0),
             sun_azimuth=_float_attr(self.hass, "sun.sun", "azimuth", 180.0),
-            preheat=always or cheap,
+            preheat=self.cheap_grid,
             on=on,
             on_seconds=on_seconds,
             off_seconds=off_seconds,
         )
+
+    def _info(self) -> tuple[Any, ...]:
+        """What the sensors report, compared before and after a pass to decide whether to write."""
+        return (self.days_without_export, self.price, self.preheat_flag, self.dry_spell, self.cheap_grid)
 
     # --- apply ----------------------------------------------------------------------------
 
@@ -536,6 +549,7 @@ class HeaterController:
             return
         self._disabled = False
         self._evaluated = True
+        before = self._info()
         snapshot = await self._snapshot(config)
         want = decide(config, snapshot)
         changed: list[str] = []
@@ -551,7 +565,7 @@ class HeaterController:
         # not the one before it, and a pass that only changes the status is written too.
         previous = self.status
         self.status = "; ".join(changed) if changed else "idle"
-        if devices != self.devices or self.status != previous:
+        if devices != self.devices or self.status != previous or self._info() != before:
             self.devices = devices
             self._notify()
         if changed:
@@ -566,6 +580,7 @@ class HeaterController:
         """
         changed: list[str] = []
         devices: list[_HeaterView] = []
+        before = self._info()
         for heater in config.heaters:
             is_on = _is_on(self.hass.states.get(heater.entity), heater.is_climate)
             if self._evaluated and not self._disabled and is_on and not self._unavailable(heater.entity):
@@ -576,7 +591,12 @@ class HeaterController:
         previous = self.status
         self._disabled = True
         self.status = "disabled" + (f": {'; '.join(changed)}" if changed else "")
-        if devices != self.devices or self.status != previous:
+        # Paused means nothing may heat from cheap grid either, so an automation on it goes quiet
+        # with the block instead of announcing hours nothing will use.
+        self.preheat_flag = False
+        self.dry_spell = False
+        self.cheap_grid = False
+        if devices != self.devices or self.status != previous or self._info() != before:
             self.devices = devices
             self._notify()
 

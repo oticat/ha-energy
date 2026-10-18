@@ -2,12 +2,14 @@
 
 from __future__ import annotations
 
+from datetime import datetime, timedelta
 from typing import Any
 
-from homeassistant.components.sensor import SensorDeviceClass, SensorEntity
+from homeassistant.components.sensor import SensorDeviceClass, SensorEntity, SensorStateClass
 from homeassistant.const import PERCENTAGE
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddConfigEntryEntitiesCallback
+from homeassistant.util import dt as dt_util
 
 from . import EnergyConfigEntry
 from .entity import EnergyEntity
@@ -27,7 +29,7 @@ async def async_setup_entry(
         ]
         # Only when the site has water heaters set up.
         if c.heater.active:
-            entities.append(HeaterSensor(c))
+            entities.extend([HeaterSensor(c), DryDaysSensor(c), CheapHoursSensor(c)])
         async_add_entities(entities, config_subentry_id=subentry_id)
 
 
@@ -117,3 +119,112 @@ class HeaterSensor(EnergyEntity, SensorEntity):
     @property
     def extra_state_attributes(self) -> dict[str, Any]:
         return self.coordinator.heater.view()
+
+
+class DryDaysSensor(EnergyEntity, SensorEntity):
+    """How many full days in a row the site has not exported surplus.
+
+    The water heaters' dry-spell rule: from `dry_days` on, they may also heat from the grid in the
+    hours at or below the site's cheap price. Counted from the recorder's hourly export, so it
+    needs a grid export (or signed grid) sensor with statistics. Only exists when the site has
+    water heaters configured, which is where the thresholds live.
+    """
+
+    _attr_icon = "mdi:weather-sunny-off"
+    _attr_state_class = SensorStateClass.MEASUREMENT
+    _attr_suggested_display_precision = 0
+
+    def __init__(self, coordinator) -> None:
+        super().__init__(coordinator, "days_without_export")
+
+    async def async_added_to_hass(self) -> None:
+        await super().async_added_to_hass()
+        self.async_on_remove(self.coordinator.heater.async_add_listener(self.async_write_ha_state))
+
+    @property
+    def native_value(self) -> int:
+        return self.coordinator.heater.days_without_export
+
+    @property
+    def extra_state_attributes(self) -> dict[str, Any]:
+        heater = self.coordinator.heater
+        config = heater.config
+        return {
+            "dry_days": config.dry_days if config else None,
+            "export_min_kwh": config.export_min_kwh if config else None,
+            "dry_spell": heater.dry_spell,
+            "price": heater.price,
+        }
+
+
+class CheapHoursSensor(EnergyEntity, SensorEntity):
+    """The hours of the plan the heaters may heat from the grid in, as windows of the clock.
+
+    These are the preheat hours the service marks plus the hours at or below the dry-spell price,
+    whatever the dry spell is doing right now: they are the schedule the top-up would use, so it
+    can be read before it starts (in a dry spell the heaters heat in every one of them). The plan
+    covers from now to the end of tomorrow, so a window that has already gone does not appear.
+    """
+
+    _attr_icon = "mdi:calendar-clock"
+
+    def __init__(self, coordinator) -> None:
+        super().__init__(coordinator, "cheap_hours")
+
+    async def async_added_to_hass(self) -> None:
+        await super().async_added_to_hass()
+        self.async_on_remove(self.coordinator.heater.async_add_listener(self.async_write_ha_state))
+
+    def _windows(self) -> list[dict[str, Any]]:
+        heater = self.coordinator.heater
+        config = heater.config
+        plan = (self.coordinator.data or {}).get("plan") or {}
+        if config is None:
+            return []
+        runs: list[list[datetime]] = []
+        for hour in plan.get("hours", []):
+            price = hour.get("price")
+            cheap = hour.get("preheat") or (isinstance(price, (int, float)) and price <= config.cheap_price)
+            start = dt_util.parse_datetime(hour.get("start") or "")
+            if not cheap or start is None:
+                continue
+            if runs and runs[-1][1] == start:
+                runs[-1][1] = start + timedelta(hours=1)
+            else:
+                runs.append([start, start + timedelta(hours=1)])
+        return [
+            {
+                "start": dt_util.as_local(start).isoformat(),
+                "end": dt_util.as_local(end).isoformat(),
+                "hours": int((end - start).total_seconds() // 3600),
+                "from": dt_util.as_local(start).strftime("%H:%M"),
+                "to": dt_util.as_local(end).strftime("%H:%M"),
+            }
+            for start, end in runs
+        ]
+
+    @property
+    def native_value(self) -> str:
+        windows = self._windows()
+        if not windows:
+            return "none"
+        # Three windows fit in a state; the whole schedule is in the attributes.
+        shown = ", ".join(f"{w['from']}-{w['to']}" for w in windows[:3])
+        return shown + (", …" if len(windows) > 3 else "")
+
+    @property
+    def extra_state_attributes(self) -> dict[str, Any]:
+        heater = self.coordinator.heater
+        config = heater.config
+        windows = self._windows()
+        return {
+            "windows": windows,
+            "hours": sum(w["hours"] for w in windows),
+            "next_start": windows[0]["start"] if windows else None,
+            "next_end": windows[0]["end"] if windows else None,
+            "cheap_price": config.cheap_price if config else None,
+            "price": heater.price,
+            "preheat": heater.preheat_flag,
+            "dry_spell": heater.dry_spell,
+            "days_without_export": heater.days_without_export,
+        }

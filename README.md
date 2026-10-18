@@ -203,6 +203,9 @@ For each inverter (device named after the site):
 | **Grid charging** | On while the plan charges the battery from the grid |
 | **Cheap-grid preheat** | On in the hours whose price is at or below the "free energy" limit. Handy to automate other cheap-grid loads |
 | **Water heaters** | Only when heaters are set up: how many are running, and each one's state, plus how many days it has been since the site exported surplus |
+| **Heating on cheap grid** | Only when heaters are set up: on while the heaters may heat from the grid this hour — the service marked the hour cheap, or the site is in a dry spell and the hour is at or below the cheap price. It is the flag the controller acts on, so automate on this one |
+| **Days without surplus** | Only when heaters are set up: how many full days in a row the site has exported less than the dry-spell threshold. Its attributes carry the threshold and whether the dry spell is on |
+| **Cheap grid hours** | Only when heaters are set up: the windows of the plan the heaters may heat from the grid in, as a clock range (`00:00-08:00`, or one range per run of cheap hours). The whole schedule, with dates, is in the attributes |
 | **High-consumption devices** | Only when heaters are set up: the switch that turns the control on and off. Off pauses it — the devices stay chosen, anything running is switched off and the controller stops deciding. It can be flipped here or on dom.oti.cat |
 | **Expected savings** | What the plan saves compared with plain self-consumption, counting the energy left in the battery |
 | **Planned grid cost** | What the plan spends on grid energy until it ends |
