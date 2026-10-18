@@ -188,20 +188,29 @@ class CheapHoursSensor(EnergyEntity, SensorEntity):
             start = dt_util.parse_datetime(hour.get("start") or "")
             if not cheap or start is None:
                 continue
-            if runs and runs[-1][1] == start:
+            # Two runs of the same kind, but never one across midnight: "00:00-08:00" is what the
+            # next day's window has to read as, not the tail of an afternoon that was also cheap.
+            same_day = runs and dt_util.as_local(runs[-1][1] - timedelta(hours=1)).date() == dt_util.as_local(start).date()
+            if runs and runs[-1][1] == start and same_day:
                 runs[-1][1] = start + timedelta(hours=1)
             else:
                 runs.append([start, start + timedelta(hours=1)])
-        return [
-            {
-                "start": dt_util.as_local(start).isoformat(),
-                "end": dt_util.as_local(end).isoformat(),
-                "hours": int((end - start).total_seconds() // 3600),
-                "from": dt_util.as_local(start).strftime("%H:%M"),
-                "to": dt_util.as_local(end).strftime("%H:%M"),
-            }
-            for start, end in runs
-        ]
+        out: list[dict[str, Any]] = []
+        for start, end in runs:
+            local_start, local_end = dt_util.as_local(start), dt_util.as_local(end)
+            to = local_end.strftime("%H:%M")
+            if to == "00:00" and local_end.date() != local_start.date():
+                to = "24:00"
+            out.append(
+                {
+                    "start": local_start.isoformat(),
+                    "end": local_end.isoformat(),
+                    "hours": int((end - start).total_seconds() // 3600),
+                    "from": local_start.strftime("%H:%M"),
+                    "to": to,
+                }
+            )
+        return out
 
     @property
     def native_value(self) -> str:
