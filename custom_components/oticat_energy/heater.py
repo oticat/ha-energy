@@ -12,7 +12,7 @@ from __future__ import annotations
 
 import asyncio
 from dataclasses import dataclass, field
-from datetime import timedelta
+from datetime import date, timedelta
 import logging
 from typing import Any
 
@@ -331,7 +331,7 @@ class HeaterController:
         self.preheat_flag = False
         self.dry_spell = False
         self.cheap_grid = False
-        self._dry_cache: tuple[float, int] | None = None
+        self._dry_cache: tuple[date, float, int] | None = None
         self._unsubs: list[Any] = []
         self._listeners: list[Any] = []
         self._lock = asyncio.Lock()
@@ -477,13 +477,23 @@ class HeaterController:
         """How many full local days in a row the site has not exported surplus.
 
         No tank sensor is needed: surplus only leaves once the heaters are full, so days without
-        export are the best sign we have that they are running short. Cached for an hour, and
-        only recomputed from the recorder's hourly export (the day chart's sensor, or the signed
-        grid sensor when there is no export register).
+        export are the best sign we have that they are running short. Cached for an hour and only
+        recomputed from the recorder's hourly export (the day chart's sensor, or the signed grid
+        sensor when there is no export register).
+
+        The cache is keyed on the local date as well as its age, because the window it counts ends
+        at midnight: a count taken at 23:26 stops at yesterday, and reused after midnight it is
+        missing the day that just closed. That is how the heaters of Gelida ran 00:00-00:26 on
+        2026-10-21, on a dry spell that had ended with the previous day's export.
         """
-        now = dt_util.utcnow().timestamp()
-        if self._dry_cache is not None and now - self._dry_cache[0] < 3600:
-            return self._dry_cache[1]
+        now = dt_util.utcnow()
+        today = dt_util.as_local(now).date()
+        if (
+            self._dry_cache is not None
+            and self._dry_cache[0] == today
+            and now.timestamp() - self._dry_cache[1] < 3600
+        ):
+            return self._dry_cache[2]
         count = 0
         try:
             entity = config.export_entity
@@ -499,14 +509,14 @@ class HeaterController:
                     continue
                 day = dt_util.as_local(when).date()
                 days[day] = days.get(day, 0.0) + sign * row["kwh"]
-            day = dt_util.now().date() - timedelta(days=1)
+            day = today - timedelta(days=1)
             while day in days and days[day] < config.export_min_kwh:
                 count += 1
                 day -= timedelta(days=1)
         except Exception as err:  # noqa: BLE001 - a recorder problem must not stop the heaters
             _LOGGER.warning("Counting the days without export failed: %s", err)
             count = 0
-        self._dry_cache = (now, count)
+        self._dry_cache = (today, now.timestamp(), count)
         return count
 
     async def _snapshot(self, config: HeaterConfig) -> Snapshot:
