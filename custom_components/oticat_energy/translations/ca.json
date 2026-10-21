@@ -29,7 +29,7 @@
       "step": {
         "user": {
           "title": "Inversor",
-          "description": "Tot el que fa a aquest lloc es configura a dom.oti.cat, a Automatització d'inversors: la bateria, les plaques solars, el contracte de xarxa, els dispositius de consum elevat i quines entitats d'aquest Home Assistant llegeix i acciona. Aquí només cal el token del lloc, i informa del que té perquè la pàgina ho pugui oferir.",
+          "description": "Tot el que fa a aquest lloc es configura a dom.oti.cat, a Gestió de l'energia: la bateria, les plaques solars, el contracte de xarxa, els dispositius de consum elevat i quines entitats d'aquest Home Assistant llegeix i acciona. Aquí només cal el token del lloc, i informa del que té perquè la pàgina ho pugui oferir.",
           "data": {
             "token": "Token del lloc"
           },
@@ -39,7 +39,7 @@
         },
         "reconfigure": {
           "title": "Inversor",
-          "description": "Tot el que fa a aquest lloc es configura a dom.oti.cat, a Automatització d'inversors: la bateria, les plaques solars, el contracte de xarxa, els dispositius de consum elevat i quines entitats d'aquest Home Assistant llegeix i acciona. Aquí només cal el token del lloc, i informa del que té perquè la pàgina ho pugui oferir.",
+          "description": "Tot el que fa a aquest lloc es configura a dom.oti.cat, a Gestió de l'energia: la bateria, les plaques solars, el contracte de xarxa, els dispositius de consum elevat i quines entitats d'aquest Home Assistant llegeix i acciona. Aquí només cal el token del lloc, i informa del que té perquè la pàgina ho pugui oferir.",
           "data": {
             "token": "Token del lloc"
           },

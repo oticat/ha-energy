@@ -75,7 +75,7 @@ year.
 
 ## Requirements
 
-- An account on [dom.oti.cat](https://dom.oti.cat) with Inverter automation enabled.
+- An account on [dom.oti.cat](https://dom.oti.cat) with Energy management enabled.
 - A **site** created there for each place you want to manage. The site holds the battery, solar
   panel, grid and water-heater settings, and gives you a token.
 - Home Assistant 2025.4 or newer.
@@ -102,11 +102,11 @@ folder and restart.
 
 ### 1. Create a site on dom.oti.cat
 
-In **Inverter automation**, add a site and fill in what it needs to know about your house: the
+In **Energy management**, add a site and fill in what it needs to know about your house: the
 battery, the solar panels, the grid contract and the water heaters. The site also gives you a
 **token**, shown once, which is how the integration proves who it is.
 
-![The Inverter automation page on dom.oti.cat](docs/dom-sites.png)
+![The Energy management page on dom.oti.cat](docs/dom-sites.png)
 
 Each site is one place, and it can drive one inverter and its water heaters.
 
@@ -157,7 +157,7 @@ heaters keep working with dom.oti.cat unreachable.
 
 ## The settings, in plain words
 
-Most settings live on dom.oti.cat, under **Inverter automation > Edit settings**, so they are the
+Most settings live on dom.oti.cat, under **Energy management > Edit settings**, so they are the
 same wherever you open them and there is only one place to change them.
 
 | Setting | What it means |

@@ -29,7 +29,7 @@
       "step": {
         "user": {
           "title": "Inverter",
-          "description": "Everything about this site is set on dom.oti.cat, in Inverter automation: the battery, the solar panels, the grid contract, the high-consumption devices, and which entities in this Home Assistant it reads and drives. This side only needs the site's token, and it reports back what it has so the page can offer it.",
+          "description": "Everything about this site is set on dom.oti.cat, in Energy management: the battery, the solar panels, the grid contract, the high-consumption devices, and which entities in this Home Assistant it reads and drives. This side only needs the site's token, and it reports back what it has so the page can offer it.",
           "data": {
             "token": "Site token"
           },
@@ -39,7 +39,7 @@
         },
         "reconfigure": {
           "title": "Inverter",
-          "description": "Everything about this site is set on dom.oti.cat, in Inverter automation: the battery, the solar panels, the grid contract, the high-consumption devices, and which entities in this Home Assistant it reads and drives. This side only needs the site's token, and it reports back what it has so the page can offer it.",
+          "description": "Everything about this site is set on dom.oti.cat, in Energy management: the battery, the solar panels, the grid contract, the high-consumption devices, and which entities in this Home Assistant it reads and drives. This side only needs the site's token, and it reports back what it has so the page can offer it.",
           "data": {
             "token": "Site token"
           },

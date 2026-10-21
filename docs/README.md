@@ -4,7 +4,7 @@ The public `README.md` links these images. They live here and are picked up auto
 
 | File | Shows |
 |------|-------|
-| `dom-sites.png` | The Inverter automation page: a site card with its Setup and the day chart |
+| `dom-sites.png` | The Energy management page: a site card with its Setup and the day chart |
 | `dom-settings.png` | The **Water heating** part of a site's settings |
 | `ha-add-integration.png` | Finding **Oticat Energy** under Add integration |
 | `ha-add-inverter.png` | The **Add inverter** form (token, sensors, location, inverter control) |
