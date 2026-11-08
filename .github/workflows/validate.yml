@@ -20,5 +20,3 @@ jobs:
       - uses: hacs/action@main
         with:
           category: integration
-          # Brand assets are only needed for the default HACS list.
-          ignore: brands

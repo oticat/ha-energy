@@ -1,13 +1,15 @@
 # Oticat Energy for Home Assistant
 
+[![Open your Home Assistant instance and open a repository in the Marketplace.](https://my.home-assistant.io/badges/hacs_repository.svg)](https://my.home-assistant.io/redirect/hacs_repository/?owner=oticat&repository=ha-energy&category=integration)
+
 Saves you money on the electricity bill without you having to do anything: it charges your home
 battery in the cheapest hours, and it heats your water with the sun. When a run of cloudy days
 leaves you short of hot water, it tops the heaters up from the grid while energy is cheap.
 
 The thinking happens in the Oticat Energy service on [dom.oti.cat](https://dom.oti.cat), with
-Spanish PVPC prices, a solar forecast for your panels and your own pattern of consumption. The
-integration only sends your location, your battery level and your consumption; it never opens a
-connection to your inverter from the internet.
+hourly PVPC prices in Spain or a fixed price by time of day, a solar forecast for your panels and
+your own pattern of consumption. The integration only sends your location, your battery level and
+your consumption; it never opens a connection to your inverter from the internet.
 
 Two things it can do, each on its own site:
 
@@ -87,11 +89,21 @@ year.
 
 ## Installation
 
-### HACS
+### Marketplace (Home Assistant 2026.11 and newer)
+
+1. Go to **Settings** > **Marketplace** and accept the community-content warning.
+2. In the upper-right corner, select **Add from link**. Connect your GitHub account if asked, then
+   add `https://github.com/oticat/ha-energy` with type **Integration**.
+3. Install **Oticat Energy** and restart Home Assistant if it asks you to.
+
+### HACS (Home Assistant 2026.10 and older)
 
 1. In HACS, open the menu and choose **Custom repositories**.
 2. Add `https://github.com/oticat/ha-energy` with type **Integration**.
 3. Install **Oticat Energy** and restart Home Assistant.
+
+Upgrading Home Assistant to 2026.11 migrates an HACS install, and its update entity, into the
+Marketplace automatically.
 
 ### Manual
 
@@ -172,6 +184,7 @@ same wherever you open them and there is only one place to change them.
 | **Inverter AC limit** | The most the inverter can put out, which caps the solar forecast |
 | **Time-of-use programs** | How many programs your inverter has (a Deye has 6) |
 | **Contracted power** | Your grid connection, which caps grid charging |
+| **Tariff** | How the plan knows what energy costs: hourly PVPC (Spain) or a fixed schedule of hourly prices for weekdays and weekends, which fits any time-of-day tariff |
 | **Surplus compensation** | How you are paid for energy you export: the regulated PVPC surplus price, or a fixed price |
 | **PVPC region** | Peninsula and islands, or Ceuta and Melilla |
 | **Consumption source** | Whether the house consumption comes from a sensor, or is worked out from the grid and solar meters |
