@@ -468,6 +468,9 @@ class EnergyCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             _LOGGER.warning("Could not read history: %s", err)
             for key, entity_id in wanted.items():
                 histories.setdefault(key, self._history.get(entity_id or "", (None, []))[1])
+        # What the water heaters drew, hour by hour, for the day chart: a switch has no energy
+        # statistics, so it comes from its state history. Empty for a site that drives none.
+        histories["heat_history"] = await self.heater.heat_history()
         where = location(self.hass, conf.get(CONF_ZONE))
         body = {
             "location": where,

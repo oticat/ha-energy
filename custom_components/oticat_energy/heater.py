@@ -327,6 +327,35 @@ def hours_drawing(series: list[tuple[datetime, str]], start: datetime, end: date
     return total
 
 
+def kwh_per_hour(
+    series: dict[str, list[tuple[datetime, str]]],
+    heaters: list[Heater],
+    start: datetime,
+    hours: int,
+    end: datetime | None = None,
+) -> list[float]:
+    """kWh the devices drew in each hour from `start`, one bucket per hour.
+
+    It is the same heat the dry spell counts, only hour by hour, so the day chart on dom can show
+    what the tank took next to what the grid and the panels did. `end` cuts the last bucket at the
+    present, so the hour that is still running is not credited with the time it has left.
+    """
+    out: list[float] = []
+    for hour in range(hours):
+        a = start + timedelta(hours=hour)
+        b = a + timedelta(hours=1)
+        if end is not None:
+            b = min(b, end)
+        total = 0.0
+        if b > a:
+            for heater in heaters:
+                rows = series.get(heater.entity) or []
+                if rows:
+                    total += hours_drawing(rows, a, b, heater.is_climate) * heater.power / 1000
+        out.append(round(total, 3))
+    return out
+
+
 @dataclass
 class _HeaterView:
     entity: str
@@ -510,6 +539,32 @@ class HeaterController:
             return float(price) if price is not None else None
         except (TypeError, ValueError):
             return None
+
+    async def heat_history(self, hours: int = 48) -> list[dict[str, Any]]:
+        """The kWh the devices drew in each of the last `hours` hours, oldest first.
+
+        The day chart on dom shows it next to the grid and the panels, so the heat the tank took
+        is visible hour by hour. Buckets are local hours, sent as their UTC start like the other
+        measured series. Empty when the site drives no devices.
+        """
+        config = self.config
+        if config is None or not config.heaters:
+            return []
+        try:
+            zone = dt_util.DEFAULT_TIME_ZONE
+            top = dt_util.as_local(dt_util.utcnow()).replace(minute=0, second=0, microsecond=0)
+            first = top - timedelta(hours=hours - 1)
+            series = await self.coordinator.state_history(
+                [h.entity for h in config.heaters], dt_util.as_utc(first), dt_util.as_utc(top + timedelta(hours=1))
+            )
+            kwh = kwh_per_hour(series, config.heaters, first, hours, dt_util.utcnow())
+            return [
+                {"start": dt_util.as_utc(first + timedelta(hours=i)).isoformat(), "kwh": value}
+                for i, value in enumerate(kwh)
+            ]
+        except Exception as err:  # noqa: BLE001 - a recorder problem must not stop planning
+            _LOGGER.warning("Reading the heaters' history failed: %s", err)
+            return []
 
     async def _heat_days(self, config: HeaterConfig) -> int:
         """How many full local days in a row the devices heated less than the site's minimum.
