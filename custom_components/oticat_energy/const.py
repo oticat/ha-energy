@@ -25,6 +25,9 @@ INVERTER_NONE = "none"
 INVERTER_DEYE = "deye"
 
 HISTORY_DAYS = 14
+# How far back the heaters' short-day count reads their state history. A dry spell longer than this
+# saturates, which still clears any `dry_days` a site can set.
+HEAT_HISTORY_DAYS = 15
 
 # --- Water heaters -------------------------------------------------------------------------
 # The integration can drive water heaters (or any dump load) straight from the plan: solar
@@ -48,10 +51,12 @@ CONF_HEATER_MARGIN = "heater_margin"                # anti-flapping hysteresis, 
 CONF_HEATER_MIN_ELEVATION = "heater_min_elevation"
 CONF_HEATER_MIN_AZIMUTH = "heater_min_azimuth"
 CONF_HEATER_MAX_AZIMUTH = "heater_max_azimuth"
-# Dry-spell top-up: when the site has gone this many full days without exporting surplus, the
-# heaters are probably undercharged, so grid heating is allowed in the cheap hours too.
+# Dry-spell top-up: when the site has gone this many full days heating less than `min_heat_kwh`, the
+# heaters are probably undercharged, so grid heating is allowed in the cheap hours too. The heat is
+# what the devices drew, read from their own state history, not an export figure: a single sunny
+# hour can export more than the tank ever took.
 CONF_HEATER_DRY_DAYS = "heater_dry_days"
-CONF_HEATER_EXPORT_MIN_KWH = "heater_export_min_kwh"
+CONF_HEATER_MIN_HEAT_KWH = "heater_min_heat_kwh"
 CONF_HEATER_CHEAP_PRICE = "heater_cheap_price"
 
 DEFAULT_HEATER_CONSUMING_STATE = "consuming"
@@ -63,5 +68,5 @@ DEFAULT_HEATER_MIN_AZIMUTH = 90
 DEFAULT_HEATER_MAX_AZIMUTH = 270
 DEFAULT_HEATER_HVAC_MODE = "heat"
 DEFAULT_HEATER_DRY_DAYS = 2
-DEFAULT_HEATER_EXPORT_MIN_KWH = 0.5
+DEFAULT_HEATER_MIN_HEAT_KWH = 3.0
 DEFAULT_HEATER_CHEAP_PRICE = 0.15

@@ -74,6 +74,6 @@ class CheapGridSensor(EnergyEntity, BinarySensorEntity):
             "cheap_price": config.cheap_price if config else None,
             "preheat": heater.preheat_flag,
             "dry_spell": heater.dry_spell,
-            "days_without_export": heater.days_without_export,
+            "days_without_heat": heater.days_without_heat,
             "dry_days": config.dry_days if config else None,
         }

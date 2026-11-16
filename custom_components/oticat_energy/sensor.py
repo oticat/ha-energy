@@ -29,7 +29,7 @@ async def async_setup_entry(
         ]
         # Only when the site has water heaters set up.
         if c.heater.active:
-            entities.extend([HeaterSensor(c), DryDaysSensor(c), CheapHoursSensor(c)])
+            entities.extend([HeaterSensor(c), DaysWithoutHeatSensor(c), CheapHoursSensor(c)])
         async_add_entities(entities, config_subentry_id=subentry_id)
 
 
@@ -121,21 +121,22 @@ class HeaterSensor(EnergyEntity, SensorEntity):
         return self.coordinator.heater.view()
 
 
-class DryDaysSensor(EnergyEntity, SensorEntity):
-    """How many full days in a row the site has not exported surplus.
+class DaysWithoutHeatSensor(EnergyEntity, SensorEntity):
+    """How many full days in a row the devices heated less than the site's minimum.
 
     The water heaters' dry-spell rule: from `dry_days` on, they may also heat from the grid in the
-    hours at or below the site's cheap price. Counted from the recorder's hourly export, so it
-    needs a grid export (or signed grid) sensor with statistics. Only exists when the site has
-    water heaters configured, which is where the thresholds live.
+    hours at or below the site's cheap price. Counted from the devices' own state history — how
+    long each one drew power, times its rated power — so it says how much heat the tank got, not
+    how much the site exported. Only exists when the site has water heaters configured, which is
+    where the thresholds live.
     """
 
-    _attr_icon = "mdi:weather-sunny-off"
+    _attr_icon = "mdi:water-boiler-off"
     _attr_state_class = SensorStateClass.MEASUREMENT
     _attr_suggested_display_precision = 0
 
     def __init__(self, coordinator) -> None:
-        super().__init__(coordinator, "days_without_export")
+        super().__init__(coordinator, "days_without_heat")
 
     async def async_added_to_hass(self) -> None:
         await super().async_added_to_hass()
@@ -143,7 +144,7 @@ class DryDaysSensor(EnergyEntity, SensorEntity):
 
     @property
     def native_value(self) -> int:
-        return self.coordinator.heater.days_without_export
+        return self.coordinator.heater.days_without_heat
 
     @property
     def extra_state_attributes(self) -> dict[str, Any]:
@@ -151,7 +152,13 @@ class DryDaysSensor(EnergyEntity, SensorEntity):
         config = heater.config
         return {
             "dry_days": config.dry_days if config else None,
-            "export_min_kwh": config.export_min_kwh if config else None,
+            "min_heat_kwh": config.min_heat_kwh if config else None,
+            "heat_kwh": round(heater.heat_kwh, 2),
+            "heat_hours": round(heater.heat_hours, 2),
+            "heat_devices": {
+                entity: {"hours": round(values["hours"], 2), "kwh": round(values["kwh"], 2)}
+                for entity, values in heater.heat_devices.items()
+            },
             "dry_spell": heater.dry_spell,
             "price": heater.price,
         }
@@ -235,5 +242,6 @@ class CheapHoursSensor(EnergyEntity, SensorEntity):
             "price": heater.price,
             "preheat": heater.preheat_flag,
             "dry_spell": heater.dry_spell,
-            "days_without_export": heater.days_without_export,
+            "days_without_heat": heater.days_without_heat,
+            "heat_kwh": round(heater.heat_kwh, 2),
         }

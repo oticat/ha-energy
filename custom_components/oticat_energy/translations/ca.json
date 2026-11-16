@@ -91,8 +91,8 @@
       "heaters": {
         "name": "Escalfadors d'aigua"
       },
-      "days_without_export": {
-        "name": "Dies sense excedent"
+      "days_without_heat": {
+        "name": "Dies sense escalfar"
       },
       "cheap_hours": {
         "name": "Hores de xarxa barata"

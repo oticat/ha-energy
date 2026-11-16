@@ -67,13 +67,16 @@ integration can heat them from the grid in two situations:
 
 - **Free or nearly free energy** — any hour whose price is at or below the limit you set on
   dom.oti.cat (0.01 €/kWh by default).
-- **After a dry spell** — when the sun has not sent any surplus out for a few days in a row, which
-  means the tanks are getting cold. Then it heats from the grid in the cheap hours too, up to a
-  price you choose.
+- **After a dry spell** — when the heaters have heated less than a few kWh a day for a couple of
+  days in a row, which means the tanks are getting cold. Then it heats from the grid in the cheap
+  hours too, up to a price you choose.
 
-No tank sensor is needed. The thermostat is what stops the heating once the tank is hot, so the
-"dry spell" top-up only spends the few kWh the tank actually needs, and only a handful of days a
-year.
+No tank sensor is needed. The integration reads the heaters' own state history — how long each one
+drew power, times the power you gave it — so a day counts by the heat the tank actually got,
+whether it came from the sun or from the grid. The thermostat is what stops the heating once the
+tank is hot, so the "dry spell" top-up only spends the few kWh the tank actually needs, and only a
+handful of days a year. A device left on with its thermostat open is counted as if it were drawing,
+which errs towards *not* topping up.
 
 ## Requirements
 
@@ -197,8 +200,8 @@ same wherever you open them and there is only one place to change them.
 | **Maximum grid import** | The ceiling on total grid import while heating on cheap grid. Set it a little under your contracted power, so it never trips the breaker |
 | **Anti-flapping margin** | A dead band around the thresholds, so a heater does not switch on and off around the limit |
 | **Sun window** | Do not heat on surplus when the sun is too low or behind morning/evening shade |
-| **Days without surplus to top up** | After this many full days without exporting surplus, the heaters are probably short, so they may also heat from the grid |
-| **Surplus that counts as exporting** | A day counts as dry when it exported less than this. Usually 0.5 kWh |
+| **Days below the heat minimum to top up** | After this many full days heating less than the minimum, the heaters are probably short, so they may also heat from the grid |
+| **Energy heated in a day** | A day counts as short when its devices drew less than this: their hours on, from the recorder, times the power you set for each. Usually 3 kWh |
 | **Top up in a dry spell up to / Cheap price during a dry spell** | The most the integration will pay for grid energy during a dry spell |
 
 | **Grid power sensor** | Grid power in watts. Positive when buying, negative when selling. If your meter gives an unsigned number, fill in the direction sensor too |
@@ -215,9 +218,9 @@ For each inverter (device named after the site):
 | **Target SOC** | The battery level the plan is holding or charging to this hour |
 | **Grid charging** | On while the plan charges the battery from the grid |
 | **Cheap-grid preheat** | On in the hours whose price is at or below the "free energy" limit. Handy to automate other cheap-grid loads |
-| **Water heaters** | Only when heaters are set up: how many are running, and each one's state, plus how many days it has been since the site exported surplus |
+| **Water heaters** | Only when heaters are set up: how many are running, and each one's state, plus how much the devices heated yesterday and how many days in a row has been below the minimum |
 | **Heating on cheap grid** | Only when heaters are set up: on while the heaters may heat from the grid this hour — the service marked the hour cheap, or the site is in a dry spell and the hour is at or below the cheap price. It is the flag the controller acts on, so automate on this one |
-| **Days without surplus** | Only when heaters are set up: how many full days in a row the site has exported less than the dry-spell threshold. Its attributes carry the threshold and whether the dry spell is on |
+| **Days without heating** | Only when heaters are set up: how many full days in a row the devices have heated less than the minimum. Its attributes carry the threshold, yesterday's kWh and hours (also per device), and whether the dry spell is on |
 | **Cheap grid hours** | Only when heaters are set up: the windows of the plan the heaters may heat from the grid in, as a clock range (`00:00-08:00`, or one range per run of cheap hours). The whole schedule, with dates, is in the attributes |
 | **High-consumption devices** | Only when heaters are set up: the switch that turns the control on and off. Off pauses it — the devices stay chosen, anything running is switched off and the controller stops deciding. It can be flipped here or on dom.oti.cat |
 | **Expected savings** | What the plan saves compared with plain self-consumption, counting the energy left in the battery |

@@ -91,8 +91,8 @@
       "heaters": {
         "name": "Water heaters"
       },
-      "days_without_export": {
-        "name": "Days without surplus"
+      "days_without_heat": {
+        "name": "Days without heating"
       },
       "cheap_hours": {
         "name": "Cheap grid hours"

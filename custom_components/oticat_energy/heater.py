@@ -12,7 +12,7 @@ from __future__ import annotations
 
 import asyncio
 from dataclasses import dataclass, field
-from datetime import date, timedelta
+from datetime import date, datetime, time, timedelta
 import logging
 from typing import Any
 
@@ -22,11 +22,9 @@ from homeassistant.helpers.event import async_track_state_change_event, async_tr
 from homeassistant.util import dt as dt_util
 
 from .const import (
-    CONF_GRID_EXPORT_ENTITY,
     CONF_HEATER_CHEAP_PRICE,
     CONF_HEATER_CONSUMING_STATE,
     CONF_HEATER_DRY_DAYS,
-    CONF_HEATER_EXPORT_MIN_KWH,
     CONF_HEATER_FLOW_ENTITY,
     CONF_HEATER_GRID_ENTITY,
     CONF_HEATER_MARGIN,
@@ -34,18 +32,20 @@ from .const import (
     CONF_HEATER_MAX_IMPORT_W,
     CONF_HEATER_MIN_AZIMUTH,
     CONF_HEATER_MIN_ELEVATION,
+    CONF_HEATER_MIN_HEAT_KWH,
     CONF_HEATER_SURPLUS_W,
     DEFAULT_HEATER_CHEAP_PRICE,
     DEFAULT_HEATER_CONSUMING_STATE,
     DEFAULT_HEATER_DRY_DAYS,
-    DEFAULT_HEATER_EXPORT_MIN_KWH,
     DEFAULT_HEATER_HVAC_MODE,
     DEFAULT_HEATER_MARGIN,
     DEFAULT_HEATER_MAX_AZIMUTH,
     DEFAULT_HEATER_MAX_IMPORT_W,
     DEFAULT_HEATER_MIN_AZIMUTH,
     DEFAULT_HEATER_MIN_ELEVATION,
+    DEFAULT_HEATER_MIN_HEAT_KWH,
     DEFAULT_HEATER_SURPLUS_W,
+    HEAT_HISTORY_DAYS,
     MAX_HEATERS,
     heater_key,
 )
@@ -59,6 +59,9 @@ HP_STABLE_SECONDS = 40
 TICK = timedelta(seconds=30)
 
 _CLIMATE_OFF = ("off", STATE_UNAVAILABLE, STATE_UNKNOWN)
+# A climate that is not off may still be idle, with its thermostat satisfied: it commands heat but
+# draws nothing. Only that one state is left out of the heat a day is credited with.
+_CLIMATE_IDLE = ("idle",)
 _INVALID = (STATE_UNAVAILABLE, STATE_UNKNOWN)
 
 
@@ -90,12 +93,12 @@ class HeaterConfig:
     # The site's on/off switch for this block, which Home Assistant also shows as an entity. Off is
     # a pause: the controller turns off what it was running and then leaves the devices alone.
     enabled: bool = True
-    # Dry-spell top-up: after this many full days without exporting surplus, the heaters may
-    # also heat from the grid in hours at or below cheap_price (the always-cheap hours come
-    # from the service's preheat flag).
-    export_entity: str | None = None
+    # Dry-spell top-up: after this many full days heating less than `min_heat_kwh`, the heaters may
+    # also heat from the grid in hours at or below cheap_price (the always-cheap hours come from the
+    # service's preheat flag). The heat of a day is what its devices drew, measured from their state
+    # history: rated power times the hours they ran.
     dry_days: int = DEFAULT_HEATER_DRY_DAYS
-    export_min_kwh: float = DEFAULT_HEATER_EXPORT_MIN_KWH
+    min_heat_kwh: float = DEFAULT_HEATER_MIN_HEAT_KWH
     cheap_price: float = DEFAULT_HEATER_CHEAP_PRICE
 
 
@@ -173,7 +176,7 @@ THRESHOLDS: tuple[tuple[str, str, float], ...] = (
     ("min_azimuth", CONF_HEATER_MIN_AZIMUTH, DEFAULT_HEATER_MIN_AZIMUTH),
     ("max_azimuth", CONF_HEATER_MAX_AZIMUTH, DEFAULT_HEATER_MAX_AZIMUTH),
     ("dry_days", CONF_HEATER_DRY_DAYS, DEFAULT_HEATER_DRY_DAYS),
-    ("export_min_kwh", CONF_HEATER_EXPORT_MIN_KWH, DEFAULT_HEATER_EXPORT_MIN_KWH),
+    ("min_heat_kwh", CONF_HEATER_MIN_HEAT_KWH, DEFAULT_HEATER_MIN_HEAT_KWH),
     ("cheap_price", CONF_HEATER_CHEAP_PRICE, DEFAULT_HEATER_CHEAP_PRICE),
 )
 
@@ -285,11 +288,8 @@ def config_from(conf: dict[str, Any], applied: dict[str, Any] | None = None) -> 
         min_elevation=t["min_elevation"],
         min_azimuth=t["min_azimuth"],
         max_azimuth=t["max_azimuth"],
-        # The export register the day chart already uses; if the site has none, the signed grid
-        # sensor is used instead.
-        export_entity=conf.get(CONF_GRID_EXPORT_ENTITY) or None,
         dry_days=int(t["dry_days"]),
-        export_min_kwh=t["export_min_kwh"],
+        min_heat_kwh=t["min_heat_kwh"],
         cheap_price=t["cheap_price"],
     )
 
@@ -298,6 +298,33 @@ def _is_on(state: Any, is_climate: bool) -> bool:
     if state is None:
         return False
     return state.state not in _CLIMATE_OFF if is_climate else state.state == "on"
+
+
+def draws_power(state: str, is_climate: bool) -> bool:
+    """Whether a state means the device is taking energy right now.
+
+    A switch is on or it is not. A climate that is not off may still be idle with its thermostat
+    satisfied, which draws nothing, so that one state does not count as heat.
+    """
+    if is_climate:
+        return state not in _CLIMATE_OFF and state not in _CLIMATE_IDLE
+    return state == "on"
+
+
+def hours_drawing(series: list[tuple[datetime, str]], start: datetime, end: datetime, is_climate: bool) -> float:
+    """Hours an entity spent drawing power between two instants.
+
+    `series` is its state changes, oldest first, with the state in force at or before `start`
+    first: the recorder is asked for the start-time state, so a device already on when the window
+    opens is counted from its beginning. Changes before `start` or after `end` are clipped.
+    """
+    total = 0.0
+    for i, (when, state) in enumerate(series):
+        following = series[i + 1][0] if i + 1 < len(series) else end
+        a, b = max(when, start), min(following, end)
+        if b > a and draws_power(state, is_climate):
+            total += (b - a).total_seconds() / 3600
+    return total
 
 
 @dataclass
@@ -323,15 +350,20 @@ class HeaterController:
         self._evaluated = False
         self.status = "disabled" if self.config is not None and not self.config.enabled else "idle"
         self.devices: list[_HeaterView] = []
-        self.days_without_export = 0
+        self.days_without_heat = 0
+        # Yesterday's heat, so the rule can be read without digging into the recorder: the kWh the
+        # devices drew and the hours they were on, per device.
+        self.heat_kwh = 0.0
+        self.heat_hours = 0.0
+        self.heat_devices: dict[str, dict[str, float]] = {}
         self.price: float | None = None
         # Where the cheap-grid permission comes from, kept apart so the sensors can say it and an
-        # automation can tell "the sun has not exported for days" from "the plan says cheap hour".
-        # Reacting to cheap_grid instead of preheat is what makes the dry spell notifiable.
+        # automation can tell "the heaters have heated little for days" from "the plan says cheap
+        # hour". Reacting to cheap_grid instead of preheat is what makes the dry spell notifiable.
         self.preheat_flag = False
         self.dry_spell = False
         self.cheap_grid = False
-        self._dry_cache: tuple[date, float, int] | None = None
+        self._heat_cache: tuple[date, float, int, float, float, dict[str, dict[str, float]]] | None = None
         self._unsubs: list[Any] = []
         self._listeners: list[Any] = []
         self._lock = asyncio.Lock()
@@ -419,7 +451,13 @@ class HeaterController:
         """The heaters' state, for the Water heaters sensor's attributes."""
         return {
             "status": self.status,
-            "days_without_export": self.days_without_export,
+            "days_without_heat": self.days_without_heat,
+            "heat_kwh": round(self.heat_kwh, 2),
+            "heat_hours": round(self.heat_hours, 2),
+            "heat_devices": {
+                entity: {"hours": round(values["hours"], 2), "kwh": round(values["kwh"], 2)}
+                for entity, values in self.heat_devices.items()
+            },
             "price": self.price,
             "devices": [
                 {"entity": d.entity, "power": d.power, "on": d.on, "want": d.want} for d in self.devices
@@ -473,62 +511,93 @@ class HeaterController:
         except (TypeError, ValueError):
             return None
 
-    async def _dry_spell(self, config: HeaterConfig) -> int:
-        """How many full local days in a row the site has not exported surplus.
+    async def _heat_days(self, config: HeaterConfig) -> int:
+        """How many full local days in a row the devices heated less than the site's minimum.
 
-        No tank sensor is needed: surplus only leaves once the heaters are full, so days without
-        export are the best sign we have that they are running short. Cached for an hour and only
-        recomputed from the recorder's hourly export (the day chart's sensor, or the signed grid
-        sensor when there is no export register).
+        The tank has no sensor, so its heat is what the devices drew: their state history over the
+        day, in hours on, times the rated power each one was configured with. That is the quantity
+        the tank needs, and it does not care where the energy came from, so a day that heated on
+        surplus counts exactly like one that heated on the grid.
 
-        The cache is keyed on the local date as well as its age, because the window it counts ends
+        It replaces an export test, which lied in both directions: one sunny hour can export more
+        than the tank ever took, and a week of low heating can sit under a modest export. It is
+        optimistic in only one direction — a device left on with its thermostat open is credited
+        with power it never drew — and that one errs on the side of not topping up.
+
+        Only days the recorder has count: a day with no history stops the count, so a fresh site
+        waits instead of topping up every night for a reason it cannot see.
+
+        Cached for an hour and keyed on the local date as well as its age, because the window ends
         at midnight: a count taken at 23:26 stops at yesterday, and reused after midnight it is
         missing the day that just closed. That is how the heaters of Gelida ran 00:00-00:26 on
-        2026-10-21, on a dry spell that had ended with the previous day's export.
+        2026-10-21, on a spell that had ended with the previous day's heat.
         """
         now = dt_util.utcnow()
         today = dt_util.as_local(now).date()
         if (
-            self._dry_cache is not None
-            and self._dry_cache[0] == today
-            and now.timestamp() - self._dry_cache[1] < 3600
+            self._heat_cache is not None
+            and self._heat_cache[0] == today
+            and now.timestamp() - self._heat_cache[1] < 3600
         ):
-            return self._dry_cache[2]
+            return self._heat_cache[2]
         count = 0
+        kwh_yesterday = 0.0
+        hours_yesterday = 0.0
+        devices_yesterday: dict[str, dict[str, float]] = {}
         try:
-            entity = config.export_entity
-            sign = 1.0
-            if entity is None:
-                # A signed grid meter exports as a negative change.
-                entity, sign = config.grid_entity, -1.0
-            rows = await self.coordinator.entity_history(entity)
-            days: dict[Any, float] = {}
-            for row in rows:
-                when = dt_util.parse_datetime(row["start"])
-                if when is None:
-                    continue
-                day = dt_util.as_local(when).date()
-                days[day] = days.get(day, 0.0) + sign * row["kwh"]
-            day = today - timedelta(days=1)
-            while day in days and days[day] < config.export_min_kwh:
+            days_back = min(max(config.dry_days, 1) + 1, HEAT_HISTORY_DAYS)
+            zone = dt_util.DEFAULT_TIME_ZONE
+            first = dt_util.as_utc(datetime.combine(today - timedelta(days=days_back), time.min, tzinfo=zone))
+            last = dt_util.as_utc(datetime.combine(today, time.min, tzinfo=zone))
+            series = await self.coordinator.state_history([h.entity for h in config.heaters], first, last)
+            heat: dict[date, float] = {}
+            day = today - timedelta(days=days_back)
+            while day < today:
+                start = datetime.combine(day, time.min, tzinfo=zone)
+                end = datetime.combine(day + timedelta(days=1), time.min, tzinfo=zone)
+                total = 0.0
+                hours = 0.0
+                devices: dict[str, dict[str, float]] = {}
+                seen = False
+                for heater in config.heaters:
+                    rows = series.get(heater.entity) or []
+                    if not rows:
+                        continue
+                    seen = True
+                    ran = hours_drawing(rows, start, end, heater.is_climate)
+                    hours += ran
+                    devices[heater.entity] = {"hours": ran, "kwh": ran * heater.power / 1000}
+                    total += devices[heater.entity]["kwh"]
+                if seen:
+                    heat[day] = total
+                if day == today - timedelta(days=1):
+                    kwh_yesterday, hours_yesterday, devices_yesterday = total, hours, devices
+                day += timedelta(days=1)
+            walk = today - timedelta(days=1)
+            while walk in heat and heat[walk] < config.min_heat_kwh:
                 count += 1
-                day -= timedelta(days=1)
+                walk -= timedelta(days=1)
         except Exception as err:  # noqa: BLE001 - a recorder problem must not stop the heaters
-            _LOGGER.warning("Counting the days without export failed: %s", err)
+            _LOGGER.warning("Counting the days without heating failed: %s", err)
             count = 0
-        self._dry_cache = (today, now.timestamp(), count)
+            kwh_yesterday = hours_yesterday = 0.0
+            devices_yesterday = {}
+        self._heat_cache = (today, now.timestamp(), count, kwh_yesterday, hours_yesterday, devices_yesterday)
         return count
 
     async def _snapshot(self, config: HeaterConfig) -> Snapshot:
         on, on_seconds, off_seconds = self._snapshot_devices(config)
         self.price = self._current_price()
-        self.days_without_export = await self._dry_spell(config)
+        self.days_without_heat = await self._heat_days(config)
+        cached = self._heat_cache
+        if cached is not None:
+            self.heat_kwh, self.heat_hours, self.heat_devices = cached[3], cached[4], cached[5]
         # The service's preheat flag is the always-cheap tier (price at or below the site's max).
         # On top of it, a dry spell adds the cheap hours: the heaters get topped up from the grid
-        # a few days a year, when the sun has not exported for dry_days.
+        # a few days a year, when they have heated less than the site's minimum for dry_days.
         always = bool((self.coordinator.data or {}).get("preheat"))
         cheap = (
-            self.days_without_export >= config.dry_days
+            self.days_without_heat >= config.dry_days
             and self.price is not None
             and self.price <= config.cheap_price
         )
@@ -547,7 +616,14 @@ class HeaterController:
 
     def _info(self) -> tuple[Any, ...]:
         """What the sensors report, compared before and after a pass to decide whether to write."""
-        return (self.days_without_export, self.price, self.preheat_flag, self.dry_spell, self.cheap_grid)
+        return (
+            self.days_without_heat,
+            round(self.heat_kwh, 2),
+            self.price,
+            self.preheat_flag,
+            self.dry_spell,
+            self.cheap_grid,
+        )
 
     # --- apply ----------------------------------------------------------------------------
 

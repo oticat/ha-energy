@@ -7,6 +7,7 @@ side sends only where the house is, its SOC and its recent hourly consumption.
 from __future__ import annotations
 
 from datetime import datetime, timedelta
+from functools import partial
 import logging
 import re
 from typing import Any
@@ -14,6 +15,7 @@ from typing import Any
 import aiohttp
 
 from homeassistant.components.recorder import get_instance
+from homeassistant.components.recorder.history import get_significant_states
 from homeassistant.components.recorder.statistics import statistics_during_period
 from homeassistant.config_entries import ConfigEntry, ConfigSubentry
 from homeassistant.const import STATE_UNAVAILABLE, STATE_UNKNOWN, __version__ as HA_VERSION
@@ -165,6 +167,9 @@ class EnergyCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         self.plan: dict[str, Any] | None = None
         self.error: str | None = None
         self._history: dict[str, tuple[datetime, list[dict[str, Any]]]] = {}
+        self._states: dict[
+            tuple[tuple[str, ...], str], tuple[datetime, dict[str, list[tuple[datetime, str]]]]
+        ] = {}
         self._version: str | None = None
         # The configuration the service last sent, kept here and in a small store so it survives
         # a restart: dom is the source of truth, and a service that cannot be reached must not
@@ -370,8 +375,7 @@ class EnergyCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         """The last 14 days of hourly `change` for one energy sensor, refreshed hourly.
 
         The grid sensor may be signed (negative while exporting); `change` keeps the sign, so
-        the service can turn each hour into a grid cost or a little export revenue. The water
-        heater control reuses it to count the days without surplus.
+        the service can turn each hour into a grid cost or a little export revenue.
         """
         if not entity_id:
             return []
@@ -397,6 +401,48 @@ class EnergyCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         ]
         self._history[entity_id] = (now, rows)
         return rows
+
+    async def state_history(
+        self, entities: list[str], start: datetime, end: datetime
+    ) -> dict[str, list[tuple[datetime, str]]]:
+        """The state changes of some entities between two instants, oldest first.
+
+        The heaters' short-day count is measured from this: how long their devices actually ran.
+        Energy statistics cannot answer it — a switch has no statistics at all — so this reads the
+        raw states instead, with the state in force at `start` first, so a device that has been on
+        since before the window counts from its beginning.
+        """
+        wanted = tuple(sorted(e for e in entities if e))
+        if not wanted:
+            return {}
+        key = (wanted, start.isoformat())
+        now = dt_util.utcnow()
+        cached = self._states.get(key)
+        if cached and now - cached[0] < HISTORY_REFRESH:
+            return cached[1]
+        raw = await get_instance(self.hass).async_add_executor_job(
+            partial(
+                get_significant_states,
+                self.hass,
+                start,
+                end,
+                entity_ids=list(wanted),
+                include_start_time_state=True,
+                significant_changes_only=True,
+                no_attributes=True,
+            )
+        )
+        out: dict[str, list[tuple[datetime, str]]] = {entity_id: [] for entity_id in wanted}
+        for entity_id, rows in (raw or {}).items():
+            series: list[tuple[datetime, str]] = []
+            for row in rows:
+                when = row.get("last_updated") if isinstance(row, dict) else getattr(row, "last_updated", None)
+                state = row.get("state") if isinstance(row, dict) else getattr(row, "state", None)
+                if when is not None and isinstance(state, str):
+                    series.append((when, state))
+            out[entity_id] = series
+        self._states[key] = (now, out)
+        return out
 
     async def _async_update_data(self) -> dict[str, Any]:
         conf = self.conf
