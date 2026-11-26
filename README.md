@@ -130,6 +130,9 @@ Each site is one place, and it can drive one inverter and its water heaters.
 ### 2. Add the integration in Home Assistant
 
 **Settings > Devices & services > Add integration > Oticat Energy.** Keep the default service URL.
+Home Assistant then shows the entities it found and asks you to allow them for the service — all of
+them, or a subset. Nothing is read, uploaded or switched outside that choice, and you can change it
+at any time in the integration's **Configure**.
 
 ![Adding the integration](docs/ha-add-integration.png)
 
@@ -147,9 +150,9 @@ production and the location with the panels, the meters with the forecasts, the 
 their sensors with the high-consumption devices — and the lists come from what this integration
 reports. A change reaches Home Assistant on its next check-in, within fifteen minutes.
 
-For those lists to have anything in them, turn on **Share the list of entities** on the Oticat
-Energy entry (**Configure**). It is off until you do, and it is the only thing this integration
-uploads beyond the meters it needs: see [What is sent to the service](#what-is-sent-to-the-service).
+When the integration is added, Home Assistant shows the entities it found and asks you to allow
+them, all or a subset. That permission is what the site's entity pickers offer, and the only thing
+the service may read or drive: see [What this Home Assistant allows](#what-this-home-assistant-allows).
 
 Adding or removing an inverter here does not lose any of that: the choices live in the site, not in
 the form.
@@ -258,44 +261,48 @@ Every fifteen minutes the integration asks dom.oti.cat for a plan. Each request 
 | **Meters** | The last 14 days of hourly energy for the site's consumption, grid, grid export and solar production sensors: one kWh figure per hour each, read from the recorder's statistics |
 | **Water heaters** | The hours the controlled devices ran, so the day chart can show how much they heated. Their state history, not their energy — a switch has no statistics |
 | **This Home Assistant** | The Home Assistant and Oticat Energy versions, so the page can say whether an update is available |
-| **The site's own settings** | The entity ids the site chose on dom.oti.cat (battery, consumption, grid, grid export, solar, zone, inverter prefix) and the configuration this side is running, echoed back so the page can show what is in sync and preselect the same choices |
-| **Entity list** | Only if you turn it on, see below |
+| **The site's own settings** | The entity ids the site chose on dom.oti.cat, among those allowed here (battery, consumption, grid, grid export, solar, zone, inverter prefix), and the configuration this side is running, echoed back so the page can show what is in sync and preselect the same choices |
+| **The allowed list** | The entity ids and names this Home Assistant allowed, so the site's settings can offer them, see below |
 
-No sensor history beyond those four meters, no states, no automations and no devices. The one other
-thing that can be sent is a list of what your Home Assistant has, and only if you allow it: see
-below. The service never connects to your inverter; it sends back the plan, and the integration
-writes it to the inverter on your own network.
+No sensor history beyond those four meters, no states, no automations and no devices. The service
+never connects to your inverter; it sends back the plan, and the integration writes it to the
+inverter on your own network.
 
-### The entity list, and why it is off by default
+### What this Home Assistant allows
 
-The site's settings on dom.oti.cat choose which entities this integration reads and drives, so the
-page needs to know what your Home Assistant has. That list is an inventory of your house, so it is
-**not sent unless you allow it**: **Settings > Devices & services > Oticat Energy > Configure >
-Share the list of entities**. It is off by default, and while it is off the service's request is
-simply not answered and the settings page tells you why its pickers are empty.
+The site's settings on dom.oti.cat choose which entities the integration reads and drives — but
+**only among the ones allowed here**. Home Assistant holds the permission, not the service:
 
-With it on, the list is sent when the service asks for it (usually while you are setting a site
-up), and it contains the entity id and name of:
+- When the integration is added, it shows what it found and asks: allow all of it, or a subset. The
+  list is pre-filled with everything, and you can untick what you do not want.
+- Later, **Settings > Devices & services > Oticat Energy > Configure** shows the same list with what
+  is allowed now ticked. Tick a new entity to allow it, untick one to revoke it.
+- The list is what the site's settings can offer. It is also the only thing that is ever read or
+  switched: an entity the service names that is not on it is refused, and the site's card in
+  dom.oti.cat says `sensor.x is not allowed in Home Assistant` until it is allowed or replaced.
 
-- battery-level sensors, and number helpers with a percentage unit, for the state of charge;
-- energy meters (total or total increasing) and power sensors;
-- switches, input booleans and climate entities, which are what a device is driven through;
-- sensors and binary sensors whose device class is **enum**, for a meter that reports its direction;
-- zones that have coordinates.
+What it proposes to allow, with the same filters as before: battery-level sensors and percentage
+number helpers, energy meters (total or total increasing), power sensors, switches, input booleans
+and climate entities, direction sensors marked as **enum**, and zones with coordinates — entity id
+and name only. Nothing looks for "any sensor", so a humidity reading or a door never appears in the
+proposal. But you do not have to keep to the proposal: any entity of those domains can be ticked by
+hand in the same form, which is how a state of charge without the battery device class, or a Zigbee
+direction sensor without the enum one, gets in.
 
-Nothing looks for "any sensor": a humidity reading is a percentage and a door is a sensor without a
-unit, and neither belongs in those lists. The lists are capped at 300 entries each.
+For each kind of entity, this is what leaves when a site uses it:
 
-An entity you need can still be missing, because the list can only recognise what the entity says
-it is — a direction sensor published by Zigbee2MQTT has no device class, so it is not an enum. Every
-entity field on dom.oti.cat also accepts an id **typed by hand**, and that choice is yours alone: it
-does not have to be in a shared list. If you would rather pick it from a list, create a Template
-helper (**Settings › Devices & services › Helpers › Create helper › Template › Sensor**) that mirrors
-it, with the device class the field needs — *Battery* for a state of charge, *Enum* for a direction —
-and point the site at that helper.
+| Entity | What the service gets |
+|--------|-----------------------|
+| Battery level | Its current value |
+| Energy meter | Its last 14 days of hourly energy |
+| Power sensor | Its current value |
+| Switch, input boolean or climate | The hours it was on, and the ability to switch it |
+| Direction sensor (enum) | Its current state |
+| Zone | Its coordinates and name |
 
-Turning the option off stops the uploads at once. A list already sent stays stored with the site,
-like the rest of its settings, until a newer one replaces it or the site is deleted.
+If you decline at install, the integration loads but reads nothing, switches nothing and offers
+nothing until you allow entities in Configure. Revoking an entity stops it on the site's next
+check-in, within fifteen minutes.
 
 ## If something looks wrong
 
@@ -309,10 +316,11 @@ like the rest of its settings, until a newer one replaces it or the site is dele
   **Water heaters** sensor tells you how many days it has been, and the current price.
 - **A heater does not come on during a dry spell.** Check the **Maximum grid import** ceiling: if
   the house is already drawing close to it, the heater is deliberately left off.
-- **An entity is missing from the settings pickers.** Type its id in the field instead: the lists
-  only hold what Home Assistant declared (a battery sensor, an energy meter, an enum). A Template
-  helper with the right device class puts it in the list too — see
-  [The entity list](#the-entity-list-and-why-it-is-off-by-default).
+- **An entity is missing from the settings pickers.** Allow it in Home Assistant:
+  **Settings › Devices & services › Oticat Energy › Configure**. The pickers only offer what is
+  allowed there; the next check-in brings the new list.
+- **The site's card says an entity "is not allowed in Home Assistant".** It was unapproved after
+  the site chose it. Allow it again in Configure, or point the site at another one.
 
 ## License
 

@@ -14,6 +14,7 @@ import asyncio
 from dataclasses import dataclass, field
 from datetime import date, datetime, time, timedelta
 import logging
+from collections.abc import Collection
 from typing import Any
 
 from homeassistant.const import STATE_UNAVAILABLE, STATE_UNKNOWN
@@ -207,7 +208,9 @@ def thresholds(conf: dict[str, Any], applied: dict[str, Any] | None = None) -> d
     return out
 
 
-def heater_devices(conf: dict[str, Any], applied: dict[str, Any] | None = None) -> list[Heater]:
+def heater_devices(
+    conf: dict[str, Any], applied: dict[str, Any] | None = None, approved: Collection[str] | None = None
+) -> list[Heater]:
     """The devices to drive, highest priority first.
 
     What the service sent wins, a list which may be empty when the site has decided it drives
@@ -226,6 +229,8 @@ def heater_devices(conf: dict[str, Any], applied: dict[str, Any] | None = None) 
             if not drivable(entity):
                 _LOGGER.warning("Not driving %s: devices must be a switch, an input_boolean or a climate", entity)
                 continue
+            if approved is not None and entity not in approved:
+                continue   # not allowed in Home Assistant any more
             power = item.get("power_w")
             mode = item.get("hvac_mode")
             out.append(
@@ -244,6 +249,8 @@ def heater_devices(conf: dict[str, Any], applied: dict[str, Any] | None = None) 
         if not drivable(entity):
             _LOGGER.warning("Not driving %s: devices must be a switch, an input_boolean or a climate", entity)
             continue
+        if approved is not None and entity not in approved:
+            continue   # not allowed in Home Assistant
         out.append(
             Heater(
                 entity=entity,
@@ -260,33 +267,43 @@ def _sent(applied: dict[str, Any] | None, key: str) -> str | None:
     return value if isinstance(value, str) and value else None
 
 
-def subentry_heaters(conf: dict[str, Any]) -> dict[str, Any]:
+def subentry_heaters(conf: dict[str, Any], approved: Collection[str] | None = None) -> dict[str, Any]:
     """This side's own heater settings, for the service to adopt as its starting point.
 
     Sent until the service has applied a configuration: a site that had tuned these in Home
     Assistant must not drop to the service's defaults, which it once did.
     """
+    grid = conf.get(CONF_HEATER_GRID_ENTITY) or ""
+    flow = conf.get(CONF_HEATER_FLOW_ENTITY) or ""
+    if approved is not None:
+        grid = grid if grid in approved else ""
+        flow = flow if flow in approved else ""
     return {
         **thresholds(conf),
-        "grid_entity": conf.get(CONF_HEATER_GRID_ENTITY) or "",
-        "flow_entity": conf.get(CONF_HEATER_FLOW_ENTITY) or "",
+        "grid_entity": grid,
+        "flow_entity": flow,
         "consuming_state": conf.get(CONF_HEATER_CONSUMING_STATE) or DEFAULT_HEATER_CONSUMING_STATE,
         "devices": [
-            {"entity": h.entity, "power_w": h.power, "hvac_mode": h.hvac_mode} for h in heater_devices(conf)
+            {"entity": h.entity, "power_w": h.power, "hvac_mode": h.hvac_mode}
+            for h in heater_devices(conf, approved=approved)
         ],
     }
 
 
-def config_from(conf: dict[str, Any], applied: dict[str, Any] | None = None) -> HeaterConfig | None:
+def config_from(
+    conf: dict[str, Any], applied: dict[str, Any] | None = None, approved: Collection[str] | None = None
+) -> HeaterConfig | None:
     """Build the heater config from what the site drives, or None when it drives nothing.
 
     What the service sent comes first, since the choices are its now; what it has not sent comes
     from the subentry, which is what the site keeps running on when the service cannot be reached.
     """
     grid_entity = _sent(applied, "grid_entity") or conf.get(CONF_HEATER_GRID_ENTITY)
+    if approved is not None and grid_entity not in approved:
+        return None
     if not grid_entity:
         return None
-    heaters = heater_devices(conf, applied)
+    heaters = heater_devices(conf, applied, approved)
     if not heaters:
         return None
     t = thresholds(conf, applied)
@@ -297,7 +314,12 @@ def config_from(conf: dict[str, Any], applied: dict[str, Any] | None = None) -> 
         heaters=heaters,
         enabled=raw_enabled if isinstance(raw_enabled, bool) else True,
         grid_entity=grid_entity,
-        flow_entity=_sent(applied, "flow_entity") or conf.get(CONF_HEATER_FLOW_ENTITY) or None,
+        flow_entity=(
+            (_sent(applied, "flow_entity") or conf.get(CONF_HEATER_FLOW_ENTITY) or None)
+            if approved is None
+            or (_sent(applied, "flow_entity") or conf.get(CONF_HEATER_FLOW_ENTITY)) in approved
+            else None
+        ),
         consuming=_sent(applied, "consuming_state") or conf.get(CONF_HEATER_CONSUMING_STATE) or DEFAULT_HEATER_CONSUMING_STATE,
         surplus_w=t["surplus_w"],
         max_import_w=t["max_import_w"],
@@ -387,7 +409,7 @@ class HeaterController:
     def __init__(self, hass: HomeAssistant, coordinator) -> None:
         self.hass = hass
         self.coordinator = coordinator
-        self.config = config_from(coordinator.conf, coordinator.applied_heaters())
+        self.config = config_from(coordinator.conf, coordinator.applied_heaters(), coordinator.approved)
         # Whether a switch-off has already let the devices go, and whether the controller has had a
         # say at all since it started. A restart while the control is off must not switch off what
         # the household turned on by hand, and it cannot tell that apart from a switch flipped while
@@ -430,7 +452,9 @@ class HeaterController:
         subentry instead, which reloads the entry and sets this up again from scratch; here it is
         the numbers, which the next evaluation reads."""
         if self.config is not None:
-            self.config = config_from(self.coordinator.conf, self.coordinator.applied_heaters())
+            self.config = config_from(
+                self.coordinator.conf, self.coordinator.applied_heaters(), self.coordinator.approved
+            )
 
     def async_add_listener(self, update_callback: Any) -> Any:
         """Entities that show the heaters register here to be written as soon as they change."""

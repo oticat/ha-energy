@@ -1,18 +1,4 @@
 {
-  "options": {
-    "step": {
-      "init": {
-        "title": "Oticat Energy options",
-        "description": "A site's settings on dom.oti.cat choose which entities this Home Assistant reads and drives, so the page needs to know what there is. That list describes your house, so it only leaves when you allow it here.",
-        "data": {
-          "share_catalogue": "Share the list of entities"
-        },
-        "data_description": {
-          "share_catalogue": "Send the entities a site can be pointed at: battery levels, energy and power sensors, the switches and climates devices are driven through, direction sensors marked as enums, and zones with coordinates. For each one, its entity id and name; no states and no history. Off by default, and only sent when the service asks for it while a site is being set up."
-        }
-      }
-    }
-  },
   "config": {
     "step": {
       "user": {
@@ -26,6 +12,24 @@
         "title": "Oticat Energy",
         "data": {
           "url": "Service URL"
+        }
+      },
+      "approve": {
+        "title": "Oticat Energy",
+        "description": "This Home Assistant found {entities} entities and {inverters} inverters that a site could use. A site on dom.oti.cat chooses which of them it reads and drives — ticking an entity allows the service to use it for a site. What leaves for each: a battery level, its current value; an energy meter, its last 14 days of hourly energy; a power sensor, its current value; a switch or a climate, its hours on and the ability to switch it; a direction sensor, its current state; a zone, its coordinates. Anything not ticked is refused, and the site's card says why. If you continue you will see the list, with everything ticked, and can untick what you do not want. If you decline, the integration loads but reads and drives nothing until you allow entities in Configure.",
+        "data": {
+          "approve": "Allow the service to use these entities"
+        }
+      },
+      "choose": {
+        "title": "Entities Oticat Energy may use",
+        "description": "Ticking an entity allows the service to use it for a site. What leaves for each: a battery level, its current value; an energy meter, its last 14 days of hourly energy; a power sensor, its current value; a switch or a climate, its hours on and the ability to switch it; a direction sensor, its current state; a zone, its coordinates. Anything not ticked is refused, and the site's card says why.",
+        "data": {
+          "entities": "Entities",
+          "inverters": "Inverters"
+        },
+        "data_description": {
+          "inverters": "A Deye's prefix, which lets a site write its time-of-use programs."
         }
       }
     },
@@ -126,6 +130,21 @@
     "switch": {
       "high_consumption": {
         "name": "High-consumption devices"
+      }
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Entities Oticat Energy may use",
+        "description": "Ticking an entity allows the service to use it for a site. What leaves for each: a battery level, its current value; an energy meter, its last 14 days of hourly energy; a power sensor, its current value; a switch or a climate, its hours on and the ability to switch it; a direction sensor, its current state; a zone, its coordinates. Anything not ticked is refused, and the site's card says why.",
+        "data": {
+          "entities": "Entities",
+          "inverters": "Inverters"
+        },
+        "data_description": {
+          "inverters": "A Deye's prefix, which lets a site write its time-of-use programs."
+        }
       }
     }
   }

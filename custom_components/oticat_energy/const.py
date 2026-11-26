@@ -6,11 +6,19 @@ PLAN_PATH = "/api/energy/plan"
 
 CONF_TOKEN = "token"
 CONF_URL = "url"
-# Whether this Home Assistant shares the list of entities the site's settings can point at. Off by
-# default and turned on by the user in this integration's options: the list is an inventory of the
-# house, and the service asking for it is not consent.
-CONF_SHARE_CATALOGUE = "share_catalogue"
-DEFAULT_SHARE_CATALOGUE = False
+
+# Which entities this Home Assistant allows the service to use, in the entry's options. The service
+# chooses which of them a site reads and drives, but only among these: anything else is refused
+# before it is read, stored or switched, and the catalogue the service sees is exactly their
+# projection. Absent on an entry created before 0.19.0, which is migrated on its first setup.
+CONF_APPROVED = "approved"
+CONF_APPROVED_ENTITIES = "entities"
+CONF_APPROVED_INVERTERS = "inverters"
+# The two steps of the install flow: accept the entities found (all of them), then optionally choose
+# a subset of them.
+CONF_APPROVE = "approve"
+CONF_CHOOSE = "choose"
+
 CONF_SOC_ENTITY = "soc_entity"
 CONF_LOAD_ENTITY = "load_entity"
 CONF_GRID_ENTITY = "grid_entity"

@@ -5,6 +5,10 @@ site token from dom.oti.cat, where the battery, solar and grid settings are made
 entities the site reads and drives. Here a subentry only asks for that token: everything else is
 chosen on the settings page, from the list this side reports, and arrives with each plan.
 
+What is *not* the service's is which entities it may use at all: that is this Home Assistant's, set
+in the install flow (all the entities found, or a subset) and changed later in the options. The
+service chooses among them; anything else it names is refused before it is read or switched.
+
 The same subentry also drives the site's high-consumption devices — solar surplus first, then the
 cheap-grid hours the service marks — which is what replaced the solar_surplus_heater blueprint.
 """
@@ -24,17 +28,21 @@ from homeassistant.config_entries import (
     SubentryFlowResult,
 )
 from homeassistant.core import HomeAssistant, callback
+from homeassistant.helpers import selector
 
+from .catalogue import APPROVABLE_DOMAINS, candidate_ids
 from .const import (
+    CONF_APPROVE,
+    CONF_APPROVED,
+    CONF_APPROVED_ENTITIES,
+    CONF_APPROVED_INVERTERS,
     CONF_INVERTER,
     CONF_INVERTER_PREFIX,
-    CONF_SHARE_CATALOGUE,
     CONF_SITE_ID,
     CONF_SOC_ENTITY,
     CONF_TOKEN,
     CONF_URL,
     CONF_ZONE,
-    DEFAULT_SHARE_CATALOGUE,
     DEFAULT_URL,
     DEFAULT_ZONE,
     DOMAIN,
@@ -42,6 +50,30 @@ from .const import (
     SUBENTRY_INVERTER,
 )
 from .coordinator import PlanRequestError, entities, location, read_soc, request_plan
+
+def _approval_schema(
+    approved: list[str], inverters: list[str], approved_inverters: list[str]
+) -> vol.Schema:
+    """The entities and inverters this Home Assistant allows the service to use.
+
+    Defaults are what is approved now, so opening this form and saving changes nothing; anything
+    else has to be ticked. The inverter prefixes are the ones found on this installation plus the
+    ones already approved, since a prefix is written to by name rather than read.
+    """
+    schema: dict[Any, Any] = {
+        vol.Optional(CONF_APPROVED_ENTITIES, default=approved): selector.EntitySelector(
+            selector.EntitySelectorConfig(domain=list(APPROVABLE_DOMAINS), multiple=True)
+        ),
+    }
+    # No inverter found (and none approved) means no field to show: an empty options list is not a
+    # selector.
+    if inverters or approved_inverters:
+        schema[vol.Optional(CONF_APPROVED_INVERTERS, default=sorted(set(approved_inverters)))] = (
+            selector.SelectSelector(
+                selector.SelectSelectorConfig(options=sorted(set(inverters) | set(approved_inverters)), multiple=True)
+            )
+        )
+    return vol.Schema(schema)
 
 
 def _inverter_schema(d: dict[str, Any]) -> vol.Schema:
@@ -87,10 +119,51 @@ class EnergyConfigFlow(ConfigFlow, domain=DOMAIN):
 
     async def async_step_user(self, user_input: dict[str, Any] | None = None) -> ConfigFlowResult:
         if user_input is not None:
-            return self.async_create_entry(title="Oticat Energy", data=user_input)
+            self._url = user_input[CONF_URL]
+            return await self.async_step_approve()
         return self.async_show_form(
             step_id="user",
             data_schema=vol.Schema({vol.Required(CONF_URL, default=DEFAULT_URL): str}),
+        )
+
+    async def async_step_approve(self, user_input: dict[str, Any] | None = None) -> ConfigFlowResult:
+        """The permission: which of this installation's entities the service may use.
+
+        It comes before the entry exists, so the user can see what a site would be able to read and
+        drive — and what would leave for each of them — before any token is added. Declining is a
+        valid answer: the integration loads, but with nothing allowed it reads nothing, drives
+        nothing and offers the service nothing until it is allowed here.
+        """
+        ids, inverters = candidate_ids(self.hass)
+        if user_input is not None:
+            if not user_input.get(CONF_APPROVE):
+                return self.async_create_entry(
+                    title="Oticat Energy",
+                    data={CONF_URL: self._url},
+                    options={CONF_APPROVED: {CONF_APPROVED_ENTITIES: [], CONF_APPROVED_INVERTERS: []}},
+                )
+            return await self.async_step_choose()
+        return self.async_show_form(
+            step_id="approve",
+            data_schema=vol.Schema({vol.Required(CONF_APPROVE, default=False): bool}),
+            description_placeholders={"entities": str(len(ids)), "inverters": str(len(inverters))},
+        )
+
+    async def async_step_choose(self, user_input: dict[str, Any] | None = None) -> ConfigFlowResult:
+        """All of them, or a subset: the list is pre-filled with everything found."""
+        ids, inverters = candidate_ids(self.hass)
+        if user_input is not None:
+            return self.async_create_entry(
+                title="Oticat Energy",
+                data={CONF_URL: self._url},
+                options={CONF_APPROVED: {
+                    CONF_APPROVED_ENTITIES: sorted(set(user_input.get(CONF_APPROVED_ENTITIES, []))),
+                    CONF_APPROVED_INVERTERS: sorted(set(user_input.get(CONF_APPROVED_INVERTERS, []))),
+                }},
+            )
+        return self.async_show_form(
+            step_id="choose",
+            data_schema=_approval_schema(ids, inverters, inverters),
         )
 
     async def async_step_reconfigure(self, user_input: dict[str, Any] | None = None) -> ConfigFlowResult:
@@ -114,25 +187,28 @@ class EnergyConfigFlow(ConfigFlow, domain=DOMAIN):
 
 
 class EnergyOptionsFlow(OptionsFlow):
-    """Preferences that are about this Home Assistant, not about any one site.
+    """The entities this Home Assistant allows the service to use, and nothing else.
 
-    The only one so far is whether the list of entities a site can point at may leave the house:
-    it is an inventory, and the service asking for it (which it does whenever a settings page
-    opens without one) is not the same as the user agreeing to it, so it is off until asked for
-    here.
+    It is the same permission the install flow asks for, opened later: the current approvals are
+    the defaults, so saving without touching them changes nothing, and anything new has to be
+    ticked. A site that is using an entity unticked here gets it refused on its next plan, with the
+    reason shown on its card.
     """
 
     async def async_step_init(self, user_input: dict[str, Any] | None = None) -> ConfigFlowResult:
+        approved = self.config_entry.options.get(CONF_APPROVED)
+        approved = approved if isinstance(approved, dict) else {}
+        approved_ids = [e for e in (approved.get(CONF_APPROVED_ENTITIES) or []) if isinstance(e, str)]
+        approved_inverters = [p for p in (approved.get(CONF_APPROVED_INVERTERS) or []) if isinstance(p, str)]
+        _ids, found = candidate_ids(self.hass)
         if user_input is not None:
-            return self.async_create_entry(data=user_input)
+            return self.async_create_entry(data={CONF_APPROVED: {
+                CONF_APPROVED_ENTITIES: sorted(set(user_input.get(CONF_APPROVED_ENTITIES, []))),
+                CONF_APPROVED_INVERTERS: sorted(set(user_input.get(CONF_APPROVED_INVERTERS, []))),
+            }})
         return self.async_show_form(
             step_id="init",
-            data_schema=vol.Schema({
-                vol.Required(
-                    CONF_SHARE_CATALOGUE,
-                    default=self.config_entry.options.get(CONF_SHARE_CATALOGUE, DEFAULT_SHARE_CATALOGUE),
-                ): bool,
-            }),
+            data_schema=_approval_schema(approved_ids, found, approved_inverters),
         )
 
 

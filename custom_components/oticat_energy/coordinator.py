@@ -36,14 +36,15 @@ from .const import (
     CONF_INVERTER,
     CONF_INVERTER_PREFIX,
     CONF_LOAD_ENTITY,
+    CONF_APPROVED,
+    CONF_APPROVED_ENTITIES,
+    CONF_APPROVED_INVERTERS,
     CONF_PROGRAM_POWER,
-    CONF_SHARE_CATALOGUE,
     CONF_SOLAR_ENTITY,
     CONF_SOC_ENTITY,
     CONF_TOKEN,
     CONF_URL,
     CONF_ZONE,
-    DEFAULT_SHARE_CATALOGUE,
     DEFAULT_URL,
     DEFAULT_ZONE,
     DOMAIN,
@@ -114,19 +115,26 @@ def location(hass: HomeAssistant, zone: str | None = None) -> dict[str, Any]:
     return {"latitude": lat, "longitude": lon, "timezone": hass.config.time_zone, "zone": state.name}
 
 
-def entities(conf: dict[str, Any]) -> dict[str, Any]:
+def entities(conf: dict[str, Any], approved: set[str] | None = None) -> dict[str, Any]:
     """This inverter's local entity choices, sent with each plan.
 
     dom.oti.cat can't read a subentry's settings, so it echoes them back on the site's card and
-    uses them to preselect the fields in Change setup.
+    uses them to preselect the fields in Change setup. An entity the user has unapproved is left
+    out: the echo must describe what this side really runs.
     """
+
+    def allowed(value: Any) -> Any:
+        if approved is None or value is None:
+            return value
+        return value if value in approved else None
+
     return {
-        "soc": conf.get(CONF_SOC_ENTITY),
-        "load": conf.get(CONF_LOAD_ENTITY),
-        "grid": conf.get(CONF_GRID_ENTITY),
-        "grid_export": conf.get(CONF_GRID_EXPORT_ENTITY),
-        "solar": conf.get(CONF_SOLAR_ENTITY),
-        "zone": conf.get(CONF_ZONE),
+        "soc": allowed(conf.get(CONF_SOC_ENTITY)),
+        "load": allowed(conf.get(CONF_LOAD_ENTITY)),
+        "grid": allowed(conf.get(CONF_GRID_ENTITY)),
+        "grid_export": allowed(conf.get(CONF_GRID_EXPORT_ENTITY)),
+        "solar": allowed(conf.get(CONF_SOLAR_ENTITY)),
+        "zone": allowed(conf.get(CONF_ZONE)),
         "inverter": conf.get(CONF_INVERTER),
         "inverter_prefix": conf.get(CONF_INVERTER_PREFIX),
         "program_power": conf.get(CONF_PROGRAM_POWER),
@@ -192,9 +200,12 @@ class EnergyCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         # Set when the service asks for the entities it can offer, and kept until it stops
         # asking, which is how the settings page fills its pickers on a private Home Assistant.
         self._send_catalogue = False
+        # A catalogue send is due on the first request after setup, so a change of the approved
+        # entities (which reloads the entry) reaches the service without it having to ask.
+        self._catalogue_pending = True
         conf = self.conf
         self.writer: DeyeWriter | None = None
-        if conf.get(CONF_INVERTER) == INVERTER_DEYE:
+        if conf.get(CONF_INVERTER) == INVERTER_DEYE and self.approved_prefix:
             self.writer = DeyeWriter(hass, conf.get(CONF_INVERTER_PREFIX, "deye"), int(conf.get(CONF_PROGRAM_POWER, 5000)))
         # Water heaters run on the same plan. Real-time, so the controller listens to the grid
         # power itself instead of waiting for the 15-minute plan refresh.
@@ -206,14 +217,29 @@ class EnergyCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         return {CONF_URL: self.config_entry.data.get(CONF_URL, DEFAULT_URL), **self.subentry.data}
 
     @property
-    def shares_catalogue(self) -> bool:
-        """Whether the list of this house's entities may leave, as set in the options.
+    def approval(self) -> dict[str, Any]:
+        """What this Home Assistant allows the service to use, as stored in the entry's options."""
+        approved = self.config_entry.options.get(CONF_APPROVED)
+        return approved if isinstance(approved, dict) else {}
 
-        Off unless the user turned it on: the list is an inventory of the house, and the service
-        asking for it (it asks whenever a settings page has none) is not a decision by the user.
-        Read live, so turning it on or off has effect from the next request.
-        """
-        return bool(self.config_entry.options.get(CONF_SHARE_CATALOGUE, DEFAULT_SHARE_CATALOGUE))
+    @property
+    def approved(self) -> set[str]:
+        """The entity ids this site may read and drive. Everything else is refused."""
+        return {e for e in (self.approval.get(CONF_APPROVED_ENTITIES) or []) if isinstance(e, str)}
+
+    @property
+    def approved_inverters(self) -> set[str]:
+        """The inverter prefixes this Home Assistant lets the site write to."""
+        return {p for p in (self.approval.get(CONF_APPROVED_INVERTERS) or []) if isinstance(p, str)}
+
+    @property
+    def approved_prefix(self) -> bool:
+        return self.conf.get(CONF_INVERTER_PREFIX) in self.approved_inverters
+
+    def allows(self, entity_id: Any) -> bool:
+        """Whether that entity may be read, uploaded or switched."""
+        return isinstance(entity_id, str) and entity_id in self.approved
+
 
     def applied_heaters(self) -> dict[str, Any] | None:
         """The device thresholds the service last sent, or None when it has not sent any."""
@@ -277,6 +303,8 @@ class EnergyCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                 allowed = HEATER_DEVICE_DOMAINS if conf_key in HEATER_DEVICE_KEYS else HEATER_SENSOR_DOMAINS
                 if value.split(".")[0] not in allowed:
                     return f"{value} is not a {' or '.join(allowed)} entity"
+                if not self.allows(value):
+                    return f"{value} is not allowed in Home Assistant"
             elif conf_key.startswith("heater_"):
                 # A device's rated power and its HVAC mode are values, not entity ids: there is
                 # nothing here to look up, and a wrong type is dropped when the device is built.
@@ -287,20 +315,28 @@ class EnergyCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             elif conf_key == CONF_INVERTER_PREFIX:
                 if not re.fullmatch(r"[a-z0-9_]{1,40}", str(value)):
                     return f"{value} is not an inverter prefix"
+                if value not in self.approved_inverters:
+                    return f"{value} is not allowed in Home Assistant"
             elif not isinstance(value, str):
                 return f"{value} is not an entity id"
             elif conf_key == CONF_ZONE:
                 if value.split(".")[0] != "zone" or self.hass.states.get(value) is None:
                     return f"{value} is not a zone"
+                if not self.allows(value):
+                    return f"{value} is not allowed in Home Assistant"
             elif conf_key == CONF_SOC_ENTITY:
                 # A SOC may be a sensor, a number helper or an input_number, and nothing else.
                 allowed = ("sensor", "number", "input_number")
                 if value.split(".")[0] not in allowed or self.hass.states.get(value) is None:
                     return f"{value} is not a {' or '.join(allowed)} entity"
+                if not self.allows(value):
+                    return f"{value} is not allowed in Home Assistant"
             elif conf_key in SENSOR_KEYS:
                 # The four meters are read as energy sensors; anything else would be read as zero.
                 if value.split(".")[0] != "sensor" or self.hass.states.get(value) is None:
                     return f"{value} is not a sensor entity"
+                if not self.allows(value):
+                    return f"{value} is not allowed in Home Assistant"
             elif self.hass.states.get(value) is None:
                 return f"{value} does not exist"
         # A Deye needs its programs to write to.
@@ -341,8 +377,15 @@ class EnergyCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             (CONF_HEATER_FLOW_ENTITY, heaters.get("flow_entity")),
             (CONF_HEATER_CONSUMING_STATE, heaters.get("consuming_state")),
         ):
-            if isinstance(value, str) and value:
-                wanted[conf_key] = value
+            if not isinstance(value, str) or not value:
+                continue
+            if conf_key == CONF_INVERTER_PREFIX:
+                if value not in self.approved_inverters:
+                    continue   # not allowed in Home Assistant
+            elif conf_key not in (CONF_INVERTER, CONF_HEATER_CONSUMING_STATE):
+                if not self.allows(value):
+                    continue   # the user has not allowed it: leave the field as it is
+            wanted[conf_key] = value
         # The devices, one slot each, in priority order. A slot the service does not fill is
         # cleared, so a device it drops stops being switched; None in the subentry is simply an
         # empty slot.
@@ -354,6 +397,8 @@ class EnergyCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                 entity = item.get("entity")
                 power = item.get("power_w")
                 mode = item.get("hvac_mode")
+                if isinstance(entity, str) and entity and not self.allows(entity):
+                    entity = None   # not allowed in Home Assistant
                 wanted[heater_key(i, "entity")] = entity if isinstance(entity, str) and entity else None
                 wanted[heater_key(i, "power")] = float(power) if isinstance(power, (int, float)) else None
                 wanted[heater_key(i, "hvac_mode")] = mode if isinstance(mode, str) and mode else None
@@ -382,12 +427,57 @@ class EnergyCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                 self.writer.program_power = int(power)
         self.heater.refresh_config()
 
+    def _prune_applied(self) -> None:
+        """Take out of what this side runs anything the user no longer allows.
+
+        The stored configuration is a copy of what the service last sent; revoking an entity in
+        Home Assistant has to stop it being read or switched even while the copy still names it. The
+        next plan from the service then differs from what is running, is refused whole, and the
+        reason reaches the site's card.
+        """
+        if not isinstance(self.applied, dict):
+            return
+        applied: dict[str, Any] = self.applied
+        dropped: list[str] = []
+        entities = applied.get("entities")
+        if isinstance(entities, dict):
+            entities = dict(entities)
+            for key in ("soc", "load", "grid", "grid_export", "solar", "zone"):
+                value = entities.get(key)
+                if isinstance(value, str) and not self.allows(value):
+                    entities[key] = None
+                    dropped.append(value)
+            applied["entities"] = entities
+        heaters = applied.get("heaters")
+        if isinstance(heaters, dict):
+            heaters = dict(heaters)
+            for key in ("grid_entity", "flow_entity"):
+                value = heaters.get(key)
+                if isinstance(value, str) and not self.allows(value):
+                    heaters[key] = None
+                    dropped.append(value)
+            devices = heaters.get("devices")
+            if isinstance(devices, list):
+                kept = []
+                for device in devices:
+                    entity = device.get("entity") if isinstance(device, dict) else None
+                    if isinstance(entity, str) and not self.allows(entity):
+                        dropped.append(entity)
+                        continue
+                    kept.append(device)
+                heaters["devices"] = kept
+            applied["heaters"] = heaters
+        if dropped:
+            self.apply_error = f"{', '.join(sorted(set(dropped)))} is not allowed in Home Assistant"
+            _LOGGER.warning("Not using %s: not allowed in Home Assistant", ", ".join(sorted(set(dropped))))
+
     async def async_setup(self) -> None:
         """Recompute the current view at every hour change, between plan fetches."""
         # Reported with each plan so dom.oti.cat can show which version runs and offer updates.
         self._version = str((await async_get_integration(self.hass, DOMAIN)).version)
         stored = await self._store.async_load() or {}
         self.applied = stored.get("config") if isinstance(stored.get("config"), dict) else None
+        self._prune_applied()
         self._apply_config()
 
         @callback
@@ -416,7 +506,7 @@ class EnergyCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         The grid sensor may be signed (negative while exporting); `change` keeps the sign, so
         the service can turn each hour into a grid cost or a little export revenue.
         """
-        if not entity_id:
+        if not entity_id or not self.allows(entity_id):
             return []
         now = dt_util.utcnow()
         cached = self._history.get(entity_id)
@@ -451,7 +541,7 @@ class EnergyCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         raw states instead, with the state in force at `start` first, so a device that has been on
         since before the window counts from its beginning.
         """
-        wanted = tuple(sorted(e for e in entities if e))
+        wanted = tuple(sorted(e for e in entities if e and self.allows(e)))
         if not wanted:
             return {}
         key = (wanted, start.isoformat())
@@ -485,12 +575,14 @@ class EnergyCoordinator(DataUpdateCoordinator[dict[str, Any]]):
 
     async def _async_update_data(self) -> dict[str, Any]:
         conf = self.conf
-        soc = read_soc(self.hass, conf.get(CONF_SOC_ENTITY, ""))
+        soc_entity = conf.get(CONF_SOC_ENTITY)
+        # An entity this Home Assistant has not allowed is not read, let alone uploaded.
+        soc = read_soc(self.hass, soc_entity) if self.allows(soc_entity) else None
         if soc is None:
             # No SOC means no plan, but not no request: the configuration and the catalogue are
             # still worth having. A fresh site has no sensors picked yet, and a battery sensor
             # that is down must not leave the site stuck on an old configuration.
-            self.error = f"{conf.get(CONF_SOC_ENTITY) or 'the SOC entity'} has no value"
+            self.error = f"{soc_entity or 'the SOC entity'} has no value"
         # Each measured sensor becomes an hourly history: consumption, grid import, grid export
         # and solar production. A recorder problem keeps the last copy and must not stop planning.
         wanted = {
@@ -510,18 +602,24 @@ class EnergyCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         # What the water heaters drew, hour by hour, for the day chart: a switch has no energy
         # statistics, so it comes from its state history. Empty for a site that drives none.
         histories["heat_history"] = await self.heater.heat_history()
-        where = location(self.hass, conf.get(CONF_ZONE))
-        # The entity list only travels when the user allowed it in the options, and the service is
-        # told either way, so the page can say why it has no list instead of asking for one that
-        # will never come.
-        shares_catalogue = self.shares_catalogue
+        # The zone is an approved entity like any other; without it the plan still needs somewhere,
+        # so Home Assistant's own location goes out without the zone's name.
+        zone = conf.get(CONF_ZONE)
+        if self.allows(zone):
+            where = location(self.hass, zone)
+        else:
+            where = {
+                "latitude": self.hass.config.latitude,
+                "longitude": self.hass.config.longitude,
+                "timezone": self.hass.config.time_zone,
+            }
         body = {
             "location": where,
             # Without a SOC the service answers with the configuration only, which is what a site
             # needs before it has a sensor to read.
             "state": {} if soc is None else {"soc": soc},
             **histories,
-            "entities": entities(conf),
+            "entities": entities(conf, self.approved),
             # What this side is running, so the service can tell what is in sync from what is
             # still waiting and what failed.
             "applied": {
@@ -529,10 +627,14 @@ class EnergyCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                 "error": self.apply_error,
                 "config": self.applied_config(),
             },
-            # `catalogue` tells the service whether this Home Assistant shares its entity list at
-            # all: when it does not, asking is futile and the settings page says why rather than
-            # waiting for an answer. Older services ignore the extra field.
-            "client": {"integration": self._version, "ha": HA_VERSION, "catalogue": shares_catalogue},
+            # `approved` tells the service whether this Home Assistant has allowed any entities at
+            # all: until it has, the settings page has nothing to offer and says so, instead of
+            # asking for a list that will never come. Older services ignore the extra field.
+            "client": {
+                "integration": self._version,
+                "ha": HA_VERSION,
+                "approved": bool(self.approved or self.approved_inverters),
+            },
         }
         # What the subentry holds for the high-consumption devices, so the service can adopt what
         # the site has never expressed itself: the numbers (which it only takes until it has
@@ -540,18 +642,20 @@ class EnergyCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         # defaults, which it did once) and the wiring, which it takes whenever the site has never
         # named it — otherwise a site that chose its devices here would stop driving them.
         if conf.get(CONF_HEATER_GRID_ENTITY):
-            body["legacy"] = {"heaters": subentry_heaters(conf)}
+            body["legacy"] = {"heaters": subentry_heaters(conf, self.approved)}
         # The high-consumption switch, when it has been flipped here and not yet confirmed. dom
         # owns the setting and stores it with the rest of the configuration, which then comes back
         # in `config`; the switch is on unless this says otherwise.
         if self._heaters_switch is not None:
             body["heaters_enabled"] = self._heaters_switch
 
-        if not shares_catalogue:
-            self._send_catalogue = False
-        sent_catalogue = shares_catalogue and self._send_catalogue
-        if sent_catalogue:
-            body["catalogue"] = build_catalogue(self.hass)
+        # The approved list is sent on the first request after setup (a change of approval reloads
+        # the entry) and whenever the service asks for it. It is only ever what was approved.
+        sent_catalogue = False
+        if self._catalogue_pending or self._send_catalogue:
+            body["catalogue"] = build_catalogue(self.hass, self.approved, self.approved_inverters)
+            sent_catalogue = True
+            self._catalogue_pending = False
         try:
             answer = await request_plan(self.hass, conf, body)
             # An answer with no hours is a configuration, not a plan: keep covering now with the
@@ -562,7 +666,7 @@ class EnergyCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             await self._take_config(answer.get("config"))
             # The service asks until it has one; once it stops, the copy that just went out was
             # good enough and there is no reason to keep sending it.
-            if answer.get("want_catalogue") and shares_catalogue:
+            if answer.get("want_catalogue"):
                 if not self._send_catalogue:
                     self._send_catalogue = True
                     # The catalogue rides on the next request. Asking is usually the settings page

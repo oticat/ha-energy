@@ -1,18 +1,4 @@
 {
-  "options": {
-    "step": {
-      "init": {
-        "title": "Opcions d'Oticat Energy",
-        "description": "La configuració d'un lloc a dom.oti.cat tria quines entitats llegeix i fa anar aquest Home Assistant, així que la pàgina necessita saber què hi ha. Aquesta llista descriu casa teva, i només surt si ho permets aquí.",
-        "data": {
-          "share_catalogue": "Comparteix la llista d'entitats"
-        },
-        "data_description": {
-          "share_catalogue": "Envia les entitats a què es pot apuntar un lloc: nivells de bateria, sensors d'energia i de potència, els interruptors i els climes amb què es fan anar els aparells, sensors de direcció marcats com a enum i zones amb coordenades. De cada una, l'identificador i el nom; cap estat ni historial. Desactivat per defecte, i només s'envia quan el servei el demana mentre es configura un lloc."
-        }
-      }
-    }
-  },
   "config": {
     "step": {
       "user": {
@@ -26,6 +12,24 @@
         "title": "Oticat Energy",
         "data": {
           "url": "URL del servei"
+        }
+      },
+      "approve": {
+        "title": "Oticat Energy",
+        "description": "Aquest Home Assistant ha trobat {entities} entitats i {inverters} inversors que un lloc podria fer servir. Un lloc a dom.oti.cat tria quines llegeix i fa anar — Marcar una entitat permet al servei fer-la servir per a un lloc. Què surt per a cada una: d'un nivell de bateria, el valor actual; d'un comptador d'energia, les últimes 14 dies d'energia per hora; d'un sensor de potència, el valor actual; d'un interruptor o un clima, les hores encesos i la capacitat d'encendre'l o apagar-lo; d'un sensor de direcció, l'estat actual; d'una zona, les coordenades. El que no estigui marcat es refusa, i la targeta del lloc diu per què. Si continues veuràs la llista, amb tot marcat, i podràs desmarcar el que no vulguis. Si ho rebutges, la integració es carrega però no llegeix ni fa anar res fins que permetis entitats a Configura.",
+        "data": {
+          "approve": "Permet al servei fer servir aquestes entitats"
+        }
+      },
+      "choose": {
+        "title": "Entitats que Oticat Energy pot fer servir",
+        "description": "Marcar una entitat permet al servei fer-la servir per a un lloc. Què surt per a cada una: d'un nivell de bateria, el valor actual; d'un comptador d'energia, les últimes 14 dies d'energia per hora; d'un sensor de potència, el valor actual; d'un interruptor o un clima, les hores encesos i la capacitat d'encendre'l o apagar-lo; d'un sensor de direcció, l'estat actual; d'una zona, les coordenades. El que no estigui marcat es refusa, i la targeta del lloc diu per què.",
+        "data": {
+          "entities": "Entitats",
+          "inverters": "Inversors"
+        },
+        "data_description": {
+          "inverters": "El prefix d'un Deye, que permet a un lloc escriure'n els programes horaris."
         }
       }
     },
@@ -126,6 +130,21 @@
     "switch": {
       "high_consumption": {
         "name": "Aparells de consum elevat"
+      }
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Entitats que Oticat Energy pot fer servir",
+        "description": "Marcar una entitat permet al servei fer-la servir per a un lloc. Què surt per a cada una: d'un nivell de bateria, el valor actual; d'un comptador d'energia, les últimes 14 dies d'energia per hora; d'un sensor de potència, el valor actual; d'un interruptor o un clima, les hores encesos i la capacitat d'encendre'l o apagar-lo; d'un sensor de direcció, l'estat actual; d'una zona, les coordenades. El que no estigui marcat es refusa, i la targeta del lloc diu per què.",
+        "data": {
+          "entities": "Entitats",
+          "inverters": "Inversors"
+        },
+        "data_description": {
+          "inverters": "El prefix d'un Deye, que permet a un lloc escriure'n els programes horaris."
+        }
       }
     }
   }
