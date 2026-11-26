@@ -286,6 +286,14 @@ up), and it contains the entity id and name of:
 Nothing looks for "any sensor": a humidity reading is a percentage and a door is a sensor without a
 unit, and neither belongs in those lists. The lists are capped at 300 entries each.
 
+An entity you need can still be missing, because the list can only recognise what the entity says
+it is — a direction sensor published by Zigbee2MQTT has no device class, so it is not an enum. Every
+entity field on dom.oti.cat also accepts an id **typed by hand**, and that choice is yours alone: it
+does not have to be in a shared list. If you would rather pick it from a list, create a Template
+helper (**Settings › Devices & services › Helpers › Create helper › Template › Sensor**) that mirrors
+it, with the device class the field needs — *Battery* for a state of charge, *Enum* for a direction —
+and point the site at that helper.
+
 Turning the option off stops the uploads at once. A list already sent stays stored with the site,
 like the rest of its settings, until a newer one replaces it or the site is deleted.
 
@@ -301,6 +309,10 @@ like the rest of its settings, until a newer one replaces it or the site is dele
   **Water heaters** sensor tells you how many days it has been, and the current price.
 - **A heater does not come on during a dry spell.** Check the **Maximum grid import** ceiling: if
   the house is already drawing close to it, the heater is deliberately left off.
+- **An entity is missing from the settings pickers.** Type its id in the field instead: the lists
+  only hold what Home Assistant declared (a battery sensor, an energy meter, an enum). A Template
+  helper with the right device class puts it in the list too — see
+  [The entity list](#the-entity-list-and-why-it-is-off-by-default).
 
 ## License
 
