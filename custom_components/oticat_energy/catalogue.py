@@ -4,6 +4,12 @@ dom cannot see into a private Home Assistant, so the list travels the other way:
 page asks for it, the plan response carries `want_catalogue`, and this sends the catalogue with
 the next request. The filters mirror GET /api/energy/connect's candidate list, so one page
 component renders both a site on one of our instances and a site on the user's own HA.
+
+This is an inventory of the house, so it only leaves when the user has turned on "Share the entity
+list" in the integration's options (off by default), and each group holds only what its picker can
+actually use: a percentage of a battery for the SOC, energy meters, power meters, the switches and
+climates a device may be driven through, direction sensors marked as enums and zones with
+coordinates. Nothing looks for "any sensor", which would take doors, motion and presence with it.
 """
 
 from __future__ import annotations
@@ -18,7 +24,8 @@ from homeassistant.core import HomeAssistant
 MAX_PER_GROUP = 300
 MAX_INVERTERS = 20
 
-SOC_DOMAINS = ("sensor", "number", "input_number")
+# The SOC may be a sensor marked as a battery, or a number helper with the unit.
+SOC_HELPER_DOMAINS = ("number", "input_number")
 ENERGY_STATES = ("total", "total_increasing")
 SWITCH_DOMAINS = ("switch", "input_boolean", "climate")
 PROGRAM = re.compile(r"^(?:number|input_number)\.(.+)_program_1_soc$")
@@ -37,10 +44,18 @@ def build_catalogue(hass: HomeAssistant) -> dict[str, Any]:
     """Every entity a site can be pointed at, grouped the way the settings page offers them."""
     states = [s for s in hass.states.async_all() if s.state not in (STATE_UNAVAILABLE, STATE_UNKNOWN)]
 
+    # A percentage on its own is not a state of charge: humidity and power factor are percentages
+    # too. A sensor has to be marked as a battery; a number helper is a number helper, and the
+    # sites that store their SOC in one mark it with the unit.
+    soc = [
+        s for s in states
+        if s.attributes.get("unit_of_measurement") == "%"
+        and (
+            _domain(s.entity_id) in SOC_HELPER_DOMAINS
+            or s.attributes.get("device_class") == "battery"
+        )
+    ]
     # A phone's battery level is also a percentage, so battery devices come first.
-    soc = [s for s in states
-           if _domain(s.entity_id) in SOC_DOMAINS
-           and s.attributes.get("unit_of_measurement") == "%"]
     soc.sort(key=lambda s: 0 if s.attributes.get("device_class") == "battery" else 1)
 
     energy = [s for s in states
@@ -55,11 +70,12 @@ def build_catalogue(hass: HomeAssistant) -> dict[str, Any]:
              if _domain(s.entity_id) == "sensor"
              and s.attributes.get("device_class") == "power"]
 
-    # Entities whose state is not a reading: where a meter that gives unsigned power says which
-    # way the energy is going.
+    # Where a meter that gives unsigned power says which way the energy is going. A direction is
+    # an enum: without that device class there is no telling one from a door, a motion sensor or a
+    # presence tracker, and all of those would ride along.
     flow = [s for s in states
             if _domain(s.entity_id) in ("sensor", "binary_sensor")
-            and s.attributes.get("unit_of_measurement") is None]
+            and s.attributes.get("device_class") == "enum"]
 
     # Zones with coordinates, home first: the plan takes its solar forecast and temperature from
     # the chosen one.

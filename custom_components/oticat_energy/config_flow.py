@@ -20,6 +20,7 @@ from homeassistant.config_entries import (
     ConfigFlow,
     ConfigFlowResult,
     ConfigSubentryFlow,
+    OptionsFlow,
     SubentryFlowResult,
 )
 from homeassistant.core import HomeAssistant, callback
@@ -27,11 +28,13 @@ from homeassistant.core import HomeAssistant, callback
 from .const import (
     CONF_INVERTER,
     CONF_INVERTER_PREFIX,
+    CONF_SHARE_CATALOGUE,
     CONF_SITE_ID,
     CONF_SOC_ENTITY,
     CONF_TOKEN,
     CONF_URL,
     CONF_ZONE,
+    DEFAULT_SHARE_CATALOGUE,
     DEFAULT_URL,
     DEFAULT_ZONE,
     DOMAIN,
@@ -99,10 +102,38 @@ class EnergyConfigFlow(ConfigFlow, domain=DOMAIN):
             data_schema=vol.Schema({vol.Required(CONF_URL, default=entry.data.get(CONF_URL, DEFAULT_URL)): str}),
         )
 
+    @staticmethod
+    @callback
+    def async_get_options_flow(config_entry: ConfigEntry) -> "EnergyOptionsFlow":
+        return EnergyOptionsFlow()
+
     @classmethod
     @callback
     def async_get_supported_subentry_types(cls, config_entry: ConfigEntry) -> dict[str, type[ConfigSubentryFlow]]:
         return {SUBENTRY_INVERTER: InverterSubentryFlow}
+
+
+class EnergyOptionsFlow(OptionsFlow):
+    """Preferences that are about this Home Assistant, not about any one site.
+
+    The only one so far is whether the list of entities a site can point at may leave the house:
+    it is an inventory, and the service asking for it (which it does whenever a settings page
+    opens without one) is not the same as the user agreeing to it, so it is off until asked for
+    here.
+    """
+
+    async def async_step_init(self, user_input: dict[str, Any] | None = None) -> ConfigFlowResult:
+        if user_input is not None:
+            return self.async_create_entry(data=user_input)
+        return self.async_show_form(
+            step_id="init",
+            data_schema=vol.Schema({
+                vol.Required(
+                    CONF_SHARE_CATALOGUE,
+                    default=self.config_entry.options.get(CONF_SHARE_CATALOGUE, DEFAULT_SHARE_CATALOGUE),
+                ): bool,
+            }),
+        )
 
 
 class InverterSubentryFlow(ConfigSubentryFlow):

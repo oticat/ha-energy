@@ -1,4 +1,18 @@
 {
+  "options": {
+    "step": {
+      "init": {
+        "title": "Opcions d'Oticat Energy",
+        "description": "La configuració d'un lloc a dom.oti.cat tria quines entitats llegeix i fa anar aquest Home Assistant, així que la pàgina necessita saber què hi ha. Aquesta llista descriu casa teva, i només surt si ho permets aquí.",
+        "data": {
+          "share_catalogue": "Comparteix la llista d'entitats"
+        },
+        "data_description": {
+          "share_catalogue": "Envia les entitats a què es pot apuntar un lloc: nivells de bateria, sensors d'energia i de potència, els interruptors i els climes amb què es fan anar els aparells, sensors de direcció marcats com a enum i zones amb coordenades. De cada una, l'identificador i el nom; cap estat ni historial. Desactivat per defecte, i només s'envia quan el servei el demana mentre es configura un lloc."
+        }
+      }
+    }
+  },
   "config": {
     "step": {
       "user": {

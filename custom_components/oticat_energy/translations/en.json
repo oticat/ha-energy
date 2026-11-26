@@ -1,4 +1,18 @@
 {
+  "options": {
+    "step": {
+      "init": {
+        "title": "Oticat Energy options",
+        "description": "A site's settings on dom.oti.cat choose which entities this Home Assistant reads and drives, so the page needs to know what there is. That list describes your house, so it only leaves when you allow it here.",
+        "data": {
+          "share_catalogue": "Share the list of entities"
+        },
+        "data_description": {
+          "share_catalogue": "Send the entities a site can be pointed at: battery levels, energy and power sensors, the switches and climates devices are driven through, direction sensors marked as enums, and zones with coordinates. For each one, its entity id and name; no states and no history. Off by default, and only sent when the service asks for it while a site is being set up."
+        }
+      }
+    }
+  },
   "config": {
     "step": {
       "user": {

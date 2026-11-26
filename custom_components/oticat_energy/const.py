@@ -6,6 +6,11 @@ PLAN_PATH = "/api/energy/plan"
 
 CONF_TOKEN = "token"
 CONF_URL = "url"
+# Whether this Home Assistant shares the list of entities the site's settings can point at. Off by
+# default and turned on by the user in this integration's options: the list is an inventory of the
+# house, and the service asking for it is not consent.
+CONF_SHARE_CATALOGUE = "share_catalogue"
+DEFAULT_SHARE_CATALOGUE = False
 CONF_SOC_ENTITY = "soc_entity"
 CONF_LOAD_ENTITY = "load_entity"
 CONF_GRID_ENTITY = "grid_entity"
@@ -35,6 +40,12 @@ HEAT_HISTORY_DAYS = 15
 # solar_surplus_heater blueprint, so the whole site is configured in one place.
 
 MAX_HEATERS = 4
+
+# What the controller may drive and what it may read. A configuration that names anything else is
+# refused rather than applied, so a service answer (or a hand edit) can never switch an unrelated
+# entity such as a light or a lock.
+HEATER_DEVICE_DOMAINS = ("switch", "input_boolean", "climate")
+HEATER_SENSOR_DOMAINS = ("sensor", "binary_sensor")
 
 
 def heater_key(index: int, part: str) -> str:

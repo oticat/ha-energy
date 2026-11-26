@@ -46,6 +46,7 @@ from .const import (
     DEFAULT_HEATER_MIN_HEAT_KWH,
     DEFAULT_HEATER_SURPLUS_W,
     HEAT_HISTORY_DAYS,
+    HEATER_DEVICE_DOMAINS,
     MAX_HEATERS,
     heater_key,
 )
@@ -76,6 +77,16 @@ class Heater:
     @property
     def is_climate(self) -> bool:
         return self.entity.startswith("climate.")
+
+
+def drivable(entity_id: str) -> bool:
+    """Whether this integration may call a service on that entity.
+
+    A device is driven through a switch, an input_boolean or a climate, and nothing else: the
+    service sends the entity ids, and a value it should not have sent must never reach a service
+    call that could turn on a light or unlock a door.
+    """
+    return entity_id.split(".")[0] in HEATER_DEVICE_DOMAINS
 
 
 @dataclass
@@ -212,6 +223,9 @@ def heater_devices(conf: dict[str, Any], applied: dict[str, Any] | None = None) 
             entity = item.get("entity")
             if not isinstance(entity, str) or not entity:
                 continue
+            if not drivable(entity):
+                _LOGGER.warning("Not driving %s: devices must be a switch, an input_boolean or a climate", entity)
+                continue
             power = item.get("power_w")
             mode = item.get("hvac_mode")
             out.append(
@@ -226,6 +240,9 @@ def heater_devices(conf: dict[str, Any], applied: dict[str, Any] | None = None) 
     for i in range(1, MAX_HEATERS + 1):
         entity = conf.get(heater_key(i, "entity"))
         if not entity:
+            continue
+        if not drivable(entity):
+            _LOGGER.warning("Not driving %s: devices must be a switch, an input_boolean or a climate", entity)
             continue
         out.append(
             Heater(
@@ -742,6 +759,11 @@ class HeaterController:
             self._notify()
 
     async def _set(self, heater: Heater, on: bool) -> None:
+        if not drivable(heater.entity):
+            # The last line of defence: whatever put it there (the service, a stored configuration
+            # or a hand edit), a device outside the allowed domains is never switched.
+            _LOGGER.error("Not switching %s: devices must be a switch, an input_boolean or a climate", heater.entity)
+            return
         if heater.is_climate:
             if on:
                 await self.hass.services.async_call(

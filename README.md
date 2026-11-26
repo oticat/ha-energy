@@ -147,28 +147,28 @@ production and the location with the panels, the meters with the forecasts, the 
 their sensors with the high-consumption devices — and the lists come from what this integration
 reports. A change reaches Home Assistant on its next check-in, within fifteen minutes.
 
+For those lists to have anything in them, turn on **Share the list of entities** on the Oticat
+Energy entry (**Configure**). It is off until you do, and it is the only thing this integration
+uploads beyond the meters it needs: see [What is sent to the service](#what-is-sent-to-the-service).
+
 Adding or removing an inverter here does not lose any of that: the choices live in the site, not in
 the form.
 
 ### 4. Set up the water heaters (optional)
 
-The same form has a **Water heaters** section. Open it and set the grid power sensor, then fill in
-up to four heaters. The order is the priority: heater 1 runs first, and heater 2 only starts once
-heater 1 has been running for a while.
+The water heaters are set on dom.oti.cat too, under **High-consumption devices** in the site's
+settings: the grid power sensor (and, on a meter that is not signed, the sensor that says which way
+the energy is going), then up to four devices. The order is the priority: the first runs first, and
+the second only starts once the first has been running for a while.
 
-![The Water heaters section](docs/ha-water-heaters.png)
+Each device is a switch, an input boolean or a climate entity, with the power it draws when it is
+on and — for a climate — the mode to set. You can leave the whole section empty if you only want
+the battery.
 
-Each heater is a switch (or a climate entity) with the power it draws when it is on.
-
-![One heater's settings](docs/ha-water-heater.png)
-
-You can leave the whole section empty if you only want the battery.
-
-Only the *entities* live here, because they are local to your Home Assistant. The thresholds they
-run on — the surplus, the import ceiling, the sun window and the dry-spell limits — are set on
-dom.oti.cat, with the rest of the site's settings, and the integration picks them up with every
-plan. Anything you set here is only used until the service sends its own, which is what lets the
-heaters keep working with dom.oti.cat unreachable.
+Everything about them lives on dom.oti.cat, because it is policy rather than wiring: the devices,
+the surplus threshold, the import ceiling, the sun window and the dry-spell limits all travel with
+each plan. What this Home Assistant keeps is the last configuration it applied, which is what lets
+the heaters keep working when dom.oti.cat cannot be reached.
 
 ## The settings, in plain words
 
@@ -249,10 +249,45 @@ This way the top-up happens a handful of times a year, and only when it is reall
 
 ## What is sent to the service
 
-Each request sends the chosen zone's coordinates and name, your time zone, the current battery
-level and the last 14 days of hourly consumption. The water heaters only add the fact that the
-site exported, not what you plugged in. Nothing else leaves your home, and the service never
-connects to your inverter.
+Every fifteen minutes the integration asks dom.oti.cat for a plan. Each request carries:
+
+| What | Detail |
+|------|--------|
+| **Where** | The chosen zone's latitude, longitude and name, and your time zone |
+| **Battery level** | The state of charge, so the plan starts from where the battery is |
+| **Meters** | The last 14 days of hourly energy for the site's consumption, grid, grid export and solar production sensors: one kWh figure per hour each, read from the recorder's statistics |
+| **Water heaters** | The hours the controlled devices ran, so the day chart can show how much they heated. Their state history, not their energy — a switch has no statistics |
+| **This Home Assistant** | The Home Assistant and Oticat Energy versions, so the page can say whether an update is available |
+| **The site's own settings** | The entity ids the site chose on dom.oti.cat (battery, consumption, grid, grid export, solar, zone, inverter prefix) and the configuration this side is running, echoed back so the page can show what is in sync and preselect the same choices |
+| **Entity list** | Only if you turn it on, see below |
+
+No sensor history beyond those four meters, no states, no automations and no devices. The one other
+thing that can be sent is a list of what your Home Assistant has, and only if you allow it: see
+below. The service never connects to your inverter; it sends back the plan, and the integration
+writes it to the inverter on your own network.
+
+### The entity list, and why it is off by default
+
+The site's settings on dom.oti.cat choose which entities this integration reads and drives, so the
+page needs to know what your Home Assistant has. That list is an inventory of your house, so it is
+**not sent unless you allow it**: **Settings > Devices & services > Oticat Energy > Configure >
+Share the list of entities**. It is off by default, and while it is off the service's request is
+simply not answered and the settings page tells you why its pickers are empty.
+
+With it on, the list is sent when the service asks for it (usually while you are setting a site
+up), and it contains the entity id and name of:
+
+- battery-level sensors, and number helpers with a percentage unit, for the state of charge;
+- energy meters (total or total increasing) and power sensors;
+- switches, input booleans and climate entities, which are what a device is driven through;
+- sensors and binary sensors whose device class is **enum**, for a meter that reports its direction;
+- zones that have coordinates.
+
+Nothing looks for "any sensor": a humidity reading is a percentage and a door is a sensor without a
+unit, and neither belongs in those lists. The lists are capped at 300 entries each.
+
+Turning the option off stops the uploads at once. A list already sent stays stored with the site,
+like the rest of its settings, until a newer one replaces it or the site is deleted.
 
 ## If something looks wrong
 

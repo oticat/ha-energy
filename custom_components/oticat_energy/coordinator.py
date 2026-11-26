@@ -37,14 +37,18 @@ from .const import (
     CONF_INVERTER_PREFIX,
     CONF_LOAD_ENTITY,
     CONF_PROGRAM_POWER,
+    CONF_SHARE_CATALOGUE,
     CONF_SOLAR_ENTITY,
     CONF_SOC_ENTITY,
     CONF_TOKEN,
     CONF_URL,
     CONF_ZONE,
+    DEFAULT_SHARE_CATALOGUE,
     DEFAULT_URL,
     DEFAULT_ZONE,
     DOMAIN,
+    HEATER_DEVICE_DOMAINS,
+    HEATER_SENSOR_DOMAINS,
     HISTORY_DAYS,
     INVERTER_DEYE,
     INVERTER_NONE,
@@ -66,10 +70,15 @@ FALLBACK_SEGMENTS = 6
 APPLIED_STORE_VERSION = 1
 
 # The subentry keys that hold an entity id, so a rename in Home Assistant is caught before it is
-# written and a device that does not exist never replaces one that does.
-HEATER_ENTITY_KEYS = frozenset({CONF_HEATER_GRID_ENTITY, CONF_HEATER_FLOW_ENTITY} | {
-    heater_key(i, "entity") for i in range(1, MAX_HEATERS + 1)
-})
+# written and a device that does not exist never replaces one that does. What each one may point at
+# is checked separately: a device is driven through a switch, an input_boolean or a climate, while
+# the two the controller reads are sensors.
+HEATER_DEVICE_KEYS = frozenset({heater_key(i, "entity") for i in range(1, MAX_HEATERS + 1)})
+HEATER_SENSOR_KEYS = frozenset({CONF_HEATER_GRID_ENTITY, CONF_HEATER_FLOW_ENTITY})
+HEATER_ENTITY_KEYS = HEATER_DEVICE_KEYS | HEATER_SENSOR_KEYS
+
+# The site's four meters, which are energy sensors and are read as such.
+SENSOR_KEYS = frozenset({CONF_LOAD_ENTITY, CONF_GRID_ENTITY, CONF_GRID_EXPORT_ENTITY, CONF_SOLAR_ENTITY})
 
 
 class PlanRequestError(Exception):
@@ -196,6 +205,16 @@ class EnergyCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         """The inverter's settings plus the service URL from the parent entry."""
         return {CONF_URL: self.config_entry.data.get(CONF_URL, DEFAULT_URL), **self.subentry.data}
 
+    @property
+    def shares_catalogue(self) -> bool:
+        """Whether the list of this house's entities may leave, as set in the options.
+
+        Off unless the user turned it on: the list is an inventory of the house, and the service
+        asking for it (it asks whenever a settings page has none) is not a decision by the user.
+        Read live, so turning it on or off has effect from the next request.
+        """
+        return bool(self.config_entry.options.get(CONF_SHARE_CATALOGUE, DEFAULT_SHARE_CATALOGUE))
+
     def applied_heaters(self) -> dict[str, Any] | None:
         """The device thresholds the service last sent, or None when it has not sent any."""
         heaters = (self.applied or {}).get("heaters")
@@ -252,6 +271,12 @@ class EnergyCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             elif conf_key in HEATER_ENTITY_KEYS:
                 if not isinstance(value, str) or self.hass.states.get(value) is None:
                     return f"{value} does not exist"
+                # Existence is not enough: a value is only applied when it is something this
+                # integration is meant to touch, so an answer (or a typo) can never make it
+                # switch a light, open a cover or unlock a door.
+                allowed = HEATER_DEVICE_DOMAINS if conf_key in HEATER_DEVICE_KEYS else HEATER_SENSOR_DOMAINS
+                if value.split(".")[0] not in allowed:
+                    return f"{value} is not a {' or '.join(allowed)} entity"
             elif conf_key.startswith("heater_"):
                 # A device's rated power and its HVAC mode are values, not entity ids: there is
                 # nothing here to look up, and a wrong type is dropped when the device is built.
@@ -262,6 +287,20 @@ class EnergyCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             elif conf_key == CONF_INVERTER_PREFIX:
                 if not re.fullmatch(r"[a-z0-9_]{1,40}", str(value)):
                     return f"{value} is not an inverter prefix"
+            elif not isinstance(value, str):
+                return f"{value} is not an entity id"
+            elif conf_key == CONF_ZONE:
+                if value.split(".")[0] != "zone" or self.hass.states.get(value) is None:
+                    return f"{value} is not a zone"
+            elif conf_key == CONF_SOC_ENTITY:
+                # A SOC may be a sensor, a number helper or an input_number, and nothing else.
+                allowed = ("sensor", "number", "input_number")
+                if value.split(".")[0] not in allowed or self.hass.states.get(value) is None:
+                    return f"{value} is not a {' or '.join(allowed)} entity"
+            elif conf_key in SENSOR_KEYS:
+                # The four meters are read as energy sensors; anything else would be read as zero.
+                if value.split(".")[0] != "sensor" or self.hass.states.get(value) is None:
+                    return f"{value} is not a sensor entity"
             elif self.hass.states.get(value) is None:
                 return f"{value} does not exist"
         # A Deye needs its programs to write to.
@@ -472,6 +511,10 @@ class EnergyCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         # statistics, so it comes from its state history. Empty for a site that drives none.
         histories["heat_history"] = await self.heater.heat_history()
         where = location(self.hass, conf.get(CONF_ZONE))
+        # The entity list only travels when the user allowed it in the options, and the service is
+        # told either way, so the page can say why it has no list instead of asking for one that
+        # will never come.
+        shares_catalogue = self.shares_catalogue
         body = {
             "location": where,
             # Without a SOC the service answers with the configuration only, which is what a site
@@ -486,7 +529,10 @@ class EnergyCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                 "error": self.apply_error,
                 "config": self.applied_config(),
             },
-            "client": {"integration": self._version, "ha": HA_VERSION},
+            # `catalogue` tells the service whether this Home Assistant shares its entity list at
+            # all: when it does not, asking is futile and the settings page says why rather than
+            # waiting for an answer. Older services ignore the extra field.
+            "client": {"integration": self._version, "ha": HA_VERSION, "catalogue": shares_catalogue},
         }
         # What the subentry holds for the high-consumption devices, so the service can adopt what
         # the site has never expressed itself: the numbers (which it only takes until it has
@@ -501,7 +547,9 @@ class EnergyCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         if self._heaters_switch is not None:
             body["heaters_enabled"] = self._heaters_switch
 
-        sent_catalogue = self._send_catalogue
+        if not shares_catalogue:
+            self._send_catalogue = False
+        sent_catalogue = shares_catalogue and self._send_catalogue
         if sent_catalogue:
             body["catalogue"] = build_catalogue(self.hass)
         try:
@@ -514,7 +562,7 @@ class EnergyCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             await self._take_config(answer.get("config"))
             # The service asks until it has one; once it stops, the copy that just went out was
             # good enough and there is no reason to keep sending it.
-            if answer.get("want_catalogue"):
+            if answer.get("want_catalogue") and shares_catalogue:
                 if not self._send_catalogue:
                     self._send_catalogue = True
                     # The catalogue rides on the next request. Asking is usually the settings page
