@@ -16,14 +16,14 @@
       },
       "approve": {
         "title": "Oticat Energy",
-        "description": "This Home Assistant found {entities} entities and {inverters} inverters that a site could use. A site on dom.oti.cat chooses which of them it reads and drives — ticking an entity allows the service to use it for a site. What leaves for each: a battery level, its current value; an energy meter, its last 14 days of hourly energy; a power sensor, its current value; a switch or a climate, its hours on and the ability to switch it; a direction sensor, its current state; a zone, its coordinates. Anything not ticked is refused, and the site's card says why. If you continue you will see the list, with everything ticked, and can untick what you do not want. If you decline, the integration loads but reads and drives nothing until you allow entities in Configure.",
+        "description": "This Home Assistant found {entities} entities and {inverters} inverters that a site could use. A site on dom.oti.cat chooses which of them it reads and drives, but only among the ones you allow here.\n\nTicking an entity allows the service to use it for a site.\n\nWhat leaves for each:\n\n- **Battery level**: its current value.\n- **Energy meter**: its last 14 days of hourly energy.\n- **Power sensor**: its current value.\n- **Switch or climate**: the hours it was on, and the ability to switch it.\n- **Direction sensor**: its current state.\n- **Zone**: its coordinates and name.\n\nAnything not ticked is refused, and the site's card says why.\n\nIf you continue you will see the list, with everything ticked, and can untick what you do not want. If you decline, the integration loads but reads and drives nothing until you allow entities in Configure.",
         "data": {
           "approve": "Allow the service to use these entities"
         }
       },
       "choose": {
         "title": "Entities Oticat Energy may use",
-        "description": "Ticking an entity allows the service to use it for a site. What leaves for each: a battery level, its current value; an energy meter, its last 14 days of hourly energy; a power sensor, its current value; a switch or a climate, its hours on and the ability to switch it; a direction sensor, its current state; a zone, its coordinates. Anything not ticked is refused, and the site's card says why.",
+        "description": "Ticking an entity allows the service to use it for a site.\n\nWhat leaves for each:\n\n- **Battery level**: its current value.\n- **Energy meter**: its last 14 days of hourly energy.\n- **Power sensor**: its current value.\n- **Switch or climate**: the hours it was on, and the ability to switch it.\n- **Direction sensor**: its current state.\n- **Zone**: its coordinates and name.\n\nAnything not ticked is refused, and the site's card says why.",
         "data": {
           "entities": "Entities",
           "inverters": "Inverters"
@@ -137,7 +137,7 @@
     "step": {
       "init": {
         "title": "Entities Oticat Energy may use",
-        "description": "Ticking an entity allows the service to use it for a site. What leaves for each: a battery level, its current value; an energy meter, its last 14 days of hourly energy; a power sensor, its current value; a switch or a climate, its hours on and the ability to switch it; a direction sensor, its current state; a zone, its coordinates. Anything not ticked is refused, and the site's card says why.",
+        "description": "Ticking an entity allows the service to use it for a site.\n\nWhat leaves for each:\n\n- **Battery level**: its current value.\n- **Energy meter**: its last 14 days of hourly energy.\n- **Power sensor**: its current value.\n- **Switch or climate**: the hours it was on, and the ability to switch it.\n- **Direction sensor**: its current state.\n- **Zone**: its coordinates and name.\n\nAnything not ticked is refused, and the site's card says why.",
         "data": {
           "entities": "Entities",
           "inverters": "Inverters"
