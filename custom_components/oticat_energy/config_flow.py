@@ -146,7 +146,12 @@ class EnergyConfigFlow(ConfigFlow, domain=DOMAIN):
         return self.async_show_form(
             step_id="approve",
             data_schema=vol.Schema({vol.Required(CONF_APPROVE, default=False): bool}),
-            description_placeholders={"entities": str(len(ids)), "inverters": str(len(inverters))},
+            # The noun travels with the number: a description cannot pluralise, and "1 inverters"
+            # is what it read before.
+            description_placeholders={
+                "entities": f"{len(ids)} {'entity' if len(ids) == 1 else 'entities'}",
+                "inverters": f"{len(inverters)} {'inverter' if len(inverters) == 1 else 'inverters'}",
+            },
         )
 
     async def async_step_choose(self, user_input: dict[str, Any] | None = None) -> ConfigFlowResult:
